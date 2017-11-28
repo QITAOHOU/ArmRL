@@ -1,0 +1,12 @@
+package arm_msgs.msgs;
+import "vector3d.proto";
+
+message ArmPoseRequest {
+  required gazebo.msgs.Vector3d joint1 = 1;
+  required gazebo.msgs.Vector3d joint2 = 2;
+  required gazebo.msgs.Vector3d joint3 = 3;
+  required gazebo.msgs.Vector3d joint4 = 4;
+  required gazebo.msgs.Vector3d joint5 = 5;
+  required gazebo.msgs.Vector3d joint6 = 6;
+  required gazebo.msgs.Vector3d joint7 = 7;
+}
