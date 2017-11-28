@@ -4,7 +4,10 @@ import argparse
 import time
 import os
 from environment import BasketballEnv
-#from policy import EpsilonGreedy
+from model import FullyConnected
+from policy import EpsilonGreedy
+
+# env, model, policy, memory, agent, processor
 
 def createAction(joint1, joint2, release):
   return np.array([0, joint1, joint2, 0, 0, 0, 0, release], dtype=np.float32)
@@ -20,9 +23,8 @@ def main():
   env = BasketballEnv(fps=60.0,
       initialLengths=np.array([0, 0, 1, 1, 0, 0, 0]),
       initialAngles=np.array([0, 45, 90, 0, 0, 0, 0]))
-  #model = models.FullyConnected(
-  #    sizes=[env.state_size() + env.action_size(), 1])
-  #policyFn = EpsilonGreedy(policyFn=model)
+  modelFn = FullyConnected(sizes=[env.state_size() + env.action_size(), 1])
+  policyFn = EpsilonGreedy(policyFn=modelFn)
 
   for i in range(100):
     state = env.reset()
