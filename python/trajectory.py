@@ -24,7 +24,7 @@ def main():
     for q in trajectory:
       positions = physx.forwardKinematics(arm.default_length, q)
       arm.setPositions(positions)
-      time.sleep(0.05)
+      time.sleep(0.02)
 
 if __name__ == "__main__":
   main()

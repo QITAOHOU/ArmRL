@@ -76,7 +76,7 @@ def main():
     for joint in jointSlides:
       joint.render(screen)
     pygame.display.flip()
-    clock.tick(25)
+    clock.tick(50)
 
 if __name__ == "__main__":
   main()

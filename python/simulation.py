@@ -31,7 +31,7 @@ class Arm(object):
         (-180.0, 180.0),
         (-180.0, 180.0),
         (-180.0, 180.0)]
-    self.num_joints = 7
+    self.num_joints = len(self.joint_limits)
 
     self.default_length = [ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 ]
 
