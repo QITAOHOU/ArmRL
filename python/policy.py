@@ -1,6 +1,6 @@
 import random
 
-class EpsilonGreedy:
+class EpsilonGreedyPolicy:
   def __init__(self, epsilon=0.1, base=10, policyFn=None, randomFn=None):
     self.epsilon = epsilon
     self.base = base

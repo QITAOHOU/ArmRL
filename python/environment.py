@@ -12,7 +12,7 @@ class BasketballEnv:
           7 joint angular velocities + release]
   Action: [7 joint angular velocities + release]
   """
-  def __init__(self, goal=np.array([3, 0, 0]), \
+  def __init__(self, goal=np.array([5, 0, 0]), \
       initialAngles=np.zeros([7], dtype=np.float32), \
       initialLengths=np.array([0, 0, 1, 1, 1, 0, 1], dtype=np.float32),
       fps=30.0):
@@ -84,6 +84,7 @@ class BasketballEnv:
       return 0.0
 
     # find the distance from the goal (in the xy-plane) that the ball has hit
+    print("Ball landed at:", pos[:2] + vel[:2] * dt)
     dp = self.goal[:2] - (pos[:2] + vel[:2] * dt)
     # use a kernel distance
     return np.exp(-np.dot(dp, dp))

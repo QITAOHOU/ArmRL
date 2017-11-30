@@ -1,7 +1,8 @@
+import numpy as np
 import mxnet as mx
 
 class MxFullyConnected:
-  def __init__(self, sizes=[1, 1], batch_size=32, alpha=0.01):
+  def __init__(self, sizes=[1, 1], batch_size=32, alpha=0.01, use_gpu=False):
     assert(len(sizes) >= 2)
     self.input_size = sizes[0]
     self.output_size = sizes[-1]
@@ -38,11 +39,16 @@ class MxFullyConnected:
       lastlayer = self.relu[i]
     self.fc.append(mx.sym.FullyConnected(data=lastlayer, weight=self.w[-1],
       bias=self.b[-1], num_hidden=self.output_size, name="out"))
-    self.y_ = mx.sym.SoftmaxOutput(data=self.fc[-1], label=self.y, name="loss")
+    self.y_ = mx.sym.LinearRegressionOutput(data=self.fc[-1], label=self.y,
+        name="loss")
 
     # define training
-    self.model = mx.mod.Module(self.y_, context=mx.cpu(0), # start w/ cpu 4now
-        data_names=["qstate"], label_names=["qvalue"])
+    if use_gpu:
+      self.model = mx.mod.Module(self.y_, context=mx.gpu(0),
+          data_names=["qstate"], label_names=["qvalue"])
+    else:
+      self.model = mx.mod.Module(self.y_, context=mx.cpu(0), # start w/ cpu 4now
+          data_names=["qstate"], label_names=["qvalue"])
     self.model.bind(
         data_shapes=[("qstate", (self.batch_size, self.input_size))],
         label_shapes=[("qvalue", (self.batch_size, self.output_size))])
@@ -51,10 +57,22 @@ class MxFullyConnected:
       "learning_rate": self.alpha
       })
 
+  def preprocessBatching(self, x):
+    if len(x.shape) == 1:
+      x = np.array([x])
+    buflen = self.batch_size - x.shape[0] % self.batch_size
+    if buflen < self.batch_size:
+      x = np.concatenate([x, np.zeros([buflen, x.shape[1]], dtype=np.float32)])
+    return x
+
   def fit(self, dataset, num_epochs=1):
-    train_iter = mx.io.NDArrayIter(data=dataset["qstates"],
-        label=dataset["qvalues"], batch_size=self.batch_size,
-        shuffle=True, data_name="qstate", label_name="qvalue")
+    if dataset["qvalues"].size == 0:
+      return
+    train_iter = mx.io.NDArrayIter(
+        data=self.preprocessBatching(dataset["qstates"]),
+        label=self.preprocessBatching(dataset["qvalues"]),
+        batch_size=self.batch_size, shuffle=True,
+        data_name="qstate", label_name="qvalue")
     for epoch in range(num_epochs):
       train_iter.reset()
       for batch in train_iter:
@@ -62,10 +80,10 @@ class MxFullyConnected:
         self.model.backward()
         self.model.update()
 
-  def predict(self, dataset):
-    qstates = mx.io.NDArrayIter(data=dataset["qstates"],
-        data_name="qstate", label_name="qvalue",
-        batch_size=self.batch_size)
+  def predict(self, qstate):
+    qstates = mx.io.NDArrayIter(
+        data=self.preprocessBatching(qstate), batch_size=self.batch_size,
+        data_name="qstate", label_name="qvalue")
     return [QV.asnumpy() for QV in self.model.predict(qstates)]
 
   def __call__(self, qstate):

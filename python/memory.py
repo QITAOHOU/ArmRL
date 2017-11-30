@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 class Trajectory:
   def __init__(self, gamma):
@@ -21,24 +22,24 @@ class Trajectory:
     self.T = []
 
   def sample(self, num_items=-1):
-    if len(self.T) < num_items:
-      if len(self.D) > 0 and len(self.T) + len(self.D[-1]) < num_items:
-        return []
-
     dataset = []
     for d in self.D:
       dataset += d
     idx = list(range(0, len(dataset)))
     random.shuffle(idx)
 
-    sampled = []
     if num_items == -1:
-      sampled = self.T
-      batch_size = 32
-      num_items = batch_size
-      while len(sampled) % batch_size > 0 and len(sampled) < num_items:
-        sampled.append(dataset[idx[i]])
-    else:
-      for i in range(num_items):
-        sampled.append(dataset[idx[i]])
-    return sampled
+      num_items = len(idx)
+
+    states = []
+    actions = []
+    values = []
+    for i in range(min(num_items, len(idx))):
+      states.append(dataset[idx[i]]["state"])
+      actions.append(dataset[idx[i]]["action"])
+      values.append([dataset[idx[i]]["value"]])
+    return {
+        "states": np.array(states, dtype=np.float32),
+        "actions": np.array(actions, dtype=np.float32),
+        "values": np.array(values, dtype=np.float32)
+        }
