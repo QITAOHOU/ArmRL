@@ -13,95 +13,66 @@ from models import MxFullyConnected
 from policy import EpsilonGreedyPolicy
 from memory import Trajectory
 
-def createAction(joint1, joint2, release):
+def createAction(mlaction):
+  joint1 = mlaction[0]
+  joint2 = mlaction[1]
+  release = mlaction[2]
   return np.array([0, joint1, joint2, 0, 0, 0, 0, release],
       dtype=np.float32)
 
-def randomSample():
-  return np.array([
-    random.randint(-36, 36) * 5,
-    random.randint(-36, 36) * 5,
-    (random.random() > 0.90)
-    ], dtype=np.int)
-
-class GreedyPolicy:
-  def __init__(self, actionSpace, model):
-    self.actionSpace = actionSpace
-    self.model = model
-
-  def __call__(self, state):
-    validActions = []
-    while len(validActions) < 32:
-      a = self.actionSpace.sample()
-      resample = False
-      for action in validActions:
-        if np.array_equal(a, action):
-          resample = True
-          break
-      if not resample:
-        validActions.append(a)
-    qstates = np.array([np.concatenate([state, action])
-      for action in validActions])
-    qvalues = self.model(qstates)
-    qvalues = np.concatenate(qvalues)
-    # sample an action from the policy (use softmax)
-    e_x = np.exp(qvalues)
-    pi = e_x / np.sum(e_x)
-    pi = np.cumsum(pi)
-    pi[-1] = 1.0
-    idx = random.random()
-    for i in range(len(pi)):
-      if idx <= pi[i]:
-        idx = i
-        break
-    return validActions[idx]
-
 stopsig = False
-def stopsigCallback(signo, idx):
+def stopsigCallback(signo, _):
   global stopsig
   stopsig = True
 
 def main():
-  signal.signal(signal.SIGINT, stopsigCallback)
-  global stopsig
-
   # define arguments
   parser = argparse.ArgumentParser()
   parser.add_argument("--render", action="store_true",
       help="Render the state")
+  parser.add_argument("--num_rollouts", type=int, default=-1,
+      help="Number of max rollouts")
+  parser.add_argument("--logfile", type=str,
+      help="Indicate where to save rollout data")
+  parser.add_argument("--load_params", type=str,
+      help="Load previously learned parameters from [LOAD_PARAMS]")
+  parser.add_argument("--save_params", type=str,
+      help="Save learned parameters to [SAVE_PARAMS]")
   args = parser.parse_args()
 
+  signal.signal(signal.SIGINT, stopsigCallback)
+  global stopsig
+
   # create the basketball environment
-  env = BasketballEnv(fps=60.0,
+  env = BasketballEnv(fps=60.0, timeInterval=0.1,
       goal=[0, 5, 0],
       initialLengths=np.array([0, 0, 1, 1, 0, 0, 0]),
       initialAngles=np.array([0, 45, 0, 0, 0, 0, 0]))
 
-  # create which space we want for the states and actions
+  # create which space and processor that we want for the states and actions
   stateSpace = ContinuousSpace(ranges=env.state_range())
   actionRange = env.action_range()
-  actionSpace = DiscreteSpace(intervals=[5 for i in range(2)] + [1],
+  actionSpace = DiscreteSpace(intervals=[10 for i in range(2)] + [1],
       ranges=[actionRange[1], actionRange[2], actionRange[7]])
-
-  # create a transformation processor between the env and the space
   processor = JointProcessor(actionSpace)
 
   # create the model and policy functions
-  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 64, 64, 1],
-      use_gpu=True)
-  if "model_params" in os.listdir("."):
+  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 64, 32, 1],
+      alpha=0.001, use_gpu=True)
+  if args.load_params:
     print("loading params...")
-    modelFn.model.load_params("model_params")
-  agentPolicy = GreedyPolicy(actionSpace, modelFn)
+    modelFn.load_params(args.load_params)
+  softmax = lambda s: np.exp(s) / np.sum(np.exp(s))
   policyFn = EpsilonGreedyPolicy(
-      policyFn=agentPolicy,
-      randomFn=lambda: processor.process_ml_action(randomSample()))
-  dataset = Trajectory(0.8)
+      getActionsFn=lambda state: actionSpace.sampleAll(),
+      distributionFn=lambda qstate: softmax(modelFn(qstate)))
+  dataset = Trajectory(0.9)
+  if args.logfile:
+    log = open(args.logfile, "a")
 
-  for i in range(1000):
-    if stopsig:
-      break
-    print("Iteration", i)
+  rollout = 0
+  while args.num_rollouts == -1 or rollout < args.num_rollouts:
+    print("Iteration:", rollout)
     state = env.reset()
     reward = 0
     done = False
@@ -109,31 +80,38 @@ def main():
       if stopsig:
         break
       action = policyFn(state)
-      A = processor.process_env_action(action)
-      A = createAction(A[0], A[1], A[2])
-      nextState, reward, done, info = env.step(A)
+      nextState, reward, done, info = env.step(
+          createAction(processor.process_env_action(action)))
       dataset.append(state, action, reward)
       state = nextState
-      if args.render and i % 10 == 0:
+      if args.render and rollout % 10 == 0:
         env.render()
-      if i % 100 == 0:
-        policyFn.epsilon = 0.1 - (float(i) / 10000)
-        print("Epsilon is now:", policyFn.epsilon)
     if stopsig:
       break
-    if reward < 0.000001:
-      R = 0
-    else:
-      R = reward
-    print("Reward:", R)
-    dataset.reset()
-    data = dataset.sample()
+
+    dataset.reset() # push trajectory into the dataset buffer
+    data = dataset.sampleLast()
+    dataset.clear() # remove everything from the buffer
     modelFn.fit({
       "qstates": np.concatenate([data["states"], data["actions"]], axis=1),
       "qvalues": data["values"]
       }, num_epochs=10)
-  print("saving params...")
-  modelFn.model.save_params("model_params")
+    print("Reward:", reward if (reward >= 0.00001) else 0, "with Error:",
+        modelFn.score())
+    if args.logfile:
+      log.write("[" + str(rollout) + ", " + str(reward) + ", " +
+          str(modelFn.score()) + "]\n")
+
+    rollout += 1
+    if rollout % 100 == 0:
+      policyFn.epsilon *= 0.95
+      print("Epsilon is now:", policyFn.epsilon)
+
+  if args.logfile:
+    log.close()
+  if args.save_params:
+    print("saving params...")
+    modelFn.save_params(args.save_params)
 
 if __name__ == "__main__":
   main()

@@ -1,5 +1,6 @@
 import numpy as np
 import mxnet as mx
+import os
 
 class MxFullyConnected:
   def __init__(self, sizes=[1, 1], batch_size=32, alpha=0.01, use_gpu=False):
@@ -11,6 +12,7 @@ class MxFullyConnected:
     if len(sizes) > 2:
       self.layer_sizes = sizes[1:-1]
     self.alpha = alpha
+    self.avg_error = 0.0
 
     # define feeds
     self.x = mx.sym.Variable("qstate")
@@ -66,19 +68,29 @@ class MxFullyConnected:
     return x
 
   def fit(self, dataset, num_epochs=1):
-    if dataset["qvalues"].size == 0:
+    qstates = dataset["qstates"]
+    qvalues = dataset["qvalues"]
+    if qvalues.size == 0:
       return
+    if len(qstates.shape) == 2 and len(qvalues.shape) == 1:
+      qvalues = np.array([qvalues]).T
     train_iter = mx.io.NDArrayIter(
-        data=self.preprocessBatching(dataset["qstates"]),
-        label=self.preprocessBatching(dataset["qvalues"]),
+        data=self.preprocessBatching(qstates),
+        label=self.preprocessBatching(qvalues),
         batch_size=self.batch_size, shuffle=True,
         data_name="qstate", label_name="qvalue")
+    error = mx.metric.MSE()
+    total_error = 0.0
     for epoch in range(num_epochs):
       train_iter.reset()
+      error.reset()
       for batch in train_iter:
         self.model.forward(batch, is_train=True)
+        self.model.update_metric(error, batch.label)
         self.model.backward()
         self.model.update()
+      total_error += error.get()[1]
+    self.avg_error = total_error / num_epochs
 
   def predict(self, qstate):
     qstates = mx.io.NDArrayIter(
@@ -88,3 +100,13 @@ class MxFullyConnected:
 
   def __call__(self, qstate):
     return self.predict(qstate)
+
+  def score(self):
+    return self.avg_error
+
+  def load_params(self, params_filename):
+    if os.path.isfile(params_filename):
+      self.model.load_params(params_filename)
+
+  def save_params(self, params_filename):
+    self.model.save_params(params_filename)

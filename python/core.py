@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.matlib import repmat
 import math
 import random
 
@@ -64,12 +65,32 @@ class DiscreteSpace:
     self.n = np.sum(self.bins)
 
   def sample(self, N=1):
+    sampleset = np.zeros([N, self.n])
     offsets = np.cumsum(np.concatenate([np.array([0]), self.bins[:-1]]))
-    idx = [random.randint(0, self.bins[i] - 1) + offsets[i]
-        for i in range(self.ranges.shape[0])]
-    onehot = np.zeros([self.n], dtype=np.float32)
-    onehot[idx] = 1.0
-    return onehot
+    sampleid = 0
+    while sampleid < N:
+      idx = [random.randint(0, self.bins[i] - 1) + offsets[i]
+          for i in range(self.ranges.shape[0])]
+      sampleset[sampleid, idx] = 1.0
+      if np.sum(np.all(sampleset == np.array([sampleset[sampleid, :]]), \
+          axis=1)) == 1:
+        sampleid += 1
+    return sampleset
+
+  def sampleAll(self):
+    idx = np.array(range(np.prod(self.bins)))
+    digits = np.cumprod(self.bins)
+    shift = np.concatenate([[1], digits[:-1]])
+    offset = np.cumsum(np.concatenate([[0], self.bins[:-1]]))
+    idx = np.floor_divide(
+        np.mod(repmat(np.array([idx]).T, 1, self.bins.shape[0]),
+          repmat(np.array([digits]), idx.shape[0], 1)),
+        repmat(np.array([shift]), idx.shape[0], 1)) + \
+            repmat(np.array([offset]), idx.shape[0], 1)
+    sampleset = np.zeros([idx.shape[0], self.n])
+    for i in range(idx.shape[0]):
+      sampleset[i, idx[i, :]] = 1
+    return sampleset
 
   def contains(self, x):
     return x.shape[0] == self.bins.shape[0] and \
@@ -86,8 +107,9 @@ class ContinuousSpace:
     self.n = self.ranges.shape[0]
 
   def sample(self, N=1):
-    return [self.intervals[i] * random.random() + self.ranges[i, 0]
-        for i in range(self.ranges.shape[0])]
+    # hopefully doesn't need fixing
+    return np.array([[self.intervals[i] * random.random() + self.ranges[i, 0]
+        for i in range(self.ranges.shape[0])] for sampleid in range(N)])
 
   def contains(self, x):
     return x.shape[0] == self.n and \
