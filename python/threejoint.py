@@ -14,10 +14,11 @@ from policy import EpsilonGreedyPolicy
 from memory import Trajectory
 
 def createAction(mlaction):
-  joint1 = mlaction[0]
-  joint2 = mlaction[1]
-  release = mlaction[2]
-  return np.array([0, joint1, joint2, 0, 0, 0, 0, release],
+  joint0 = mlaction[0]
+  joint1 = mlaction[1]
+  joint2 = mlaction[2]
+  release = mlaction[3]
+  return np.array([joint0, joint1, joint2, 0, 0, 0, 0, release],
       dtype=np.float32)
 
 stopsig = False
@@ -52,12 +53,12 @@ def main():
   # create which space and processor that we want for the states and actions
   stateSpace = ContinuousSpace(ranges=env.state_range())
   actionRange = env.action_range()
-  actionSpace = DiscreteSpace(intervals=[20 for i in range(2)] + [1],
-      ranges=[actionRange[1], actionRange[2], actionRange[7]])
+  actionSpace = DiscreteSpace(intervals=[20 for i in range(3)] + [1],
+      ranges=[actionRange[0], actionRange[1], actionRange[2], actionRange[7]])
   processor = JointProcessor(actionSpace)
 
   # create the model and policy functions
-  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 64, 32, 1],
+  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 128, 64, 1],
       alpha=0.001, use_gpu=True)
   if args.load_params:
     print("loading params...")
