@@ -46,14 +46,14 @@ def main():
 
   # create the basketball environment
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
-      goal=[0, 5, 0],
+      goal=[5, 0, 0],
       initialLengths=np.array([0, 0, 1, 1, 0, 0, 0]),
       initialAngles=np.array([0, 45, 0, 0, 0, 0, 0]))
 
   # create which space and processor that we want for the states and actions
   stateSpace = ContinuousSpace(ranges=env.state_range())
   actionRange = env.action_range()
-  actionSpace = DiscreteSpace(intervals=[20 for i in range(3)] + [1],
+  actionSpace = DiscreteSpace(intervals=[30 for i in range(3)] + [1],
       ranges=[actionRange[0], actionRange[1], actionRange[2], actionRange[7]])
   processor = JointProcessor(actionSpace)
 

@@ -52,7 +52,7 @@ def main():
   # create which space and processor that we want for the states and actions
   stateSpace = ContinuousSpace(ranges=env.state_range())
   actionRange = env.action_range()
-  actionSpace = DiscreteSpace(intervals=[20 for i in range(2)] + [1],
+  actionSpace = DiscreteSpace(intervals=[30 for i in range(2)] + [1],
       ranges=[actionRange[1], actionRange[2], actionRange[7]])
   processor = JointProcessor(actionSpace)
 
