@@ -32,3 +32,20 @@ target_link_libraries(arm_plugin
   ${SDF_LIBRARIES}
   ${ARMADILLO_LIBRARIES})
 add_dependencies(arm_plugin arm_msgs)
+
+#add_library(bball_gz SHARED bball_gz.cc)
+#target_link_libraries(bball_gz
+#  bball_msgs
+#  ${GAZEBO_LIBRARIES}
+#  ${SDF_LIBRARIES}
+#  ${Boost_LIBRARIES}
+#  ${bballADILLO_LIBRARIES})
+#add_dependencies(bball_gz bball_msgs)
+
+#add_library(bball_plugin SHARED bball_plugin.cc)
+#target_link_libraries(bball_plugin
+#  bball_msgs
+#  ${GAZEBO_LIBRARIES}
+#  ${SDF_LIBRARIES}
+#  ${bballADILLO_LIBRARIES})
+#add_dependencies(bball_plugin bball_msgs)
