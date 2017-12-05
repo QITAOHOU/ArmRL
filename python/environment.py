@@ -31,7 +31,7 @@ class BasketballVelocityEnv:
       np.zeros([8], dtype=np.float32)]) # angpos, angvel, release
     self.angles = self.initial_state.copy()
     self.goal = goal
-    self.sim = None
+    self.armsim = None
     self.time_render = None
     self.fps = fps
     self.iter = 0
@@ -67,10 +67,10 @@ class BasketballVelocityEnv:
 
   def render(self, mode="human", close=False):
     pos = physx.forwardKinematics(self.lengths, self.angles)
-    if self.sim == None:
-      self.sim = simulation.Arm()
-      self.sim.default_length = self.lengths
-    self.sim.setPositions(pos)
+    if self.armsim == None:
+      self.armsim = simulation.Arm()
+      self.armsim.default_length = self.lengths
+    self.armsim.setPositions(pos)
     t = time.time()
     if self.time_render == None or self.time_render < t:
       self.time_render = t + 1.0 / self.fps
@@ -78,10 +78,13 @@ class BasketballVelocityEnv:
       time.sleep(self.time_render - t)
       self.time_render += 1.0 / self.fps
 
+    #if self.terminationFn(self.angles, None):
+      #self.ballsim.setPosition(pos2)
+
   def close(self):
-    if self.sim != None:
-      del self.sim
-      self.sim = None
+    if self.armsim != None:
+      del self.armsim
+      self.armsim = None
 
   def seed(self, seed=None):
     pass
@@ -118,8 +121,8 @@ class BasketballVelocityEnv:
     # use a kernel distance
     return np.exp(-np.dot(dp, dp))
 
-  def terminationFn(self, state, action):
-    return action[7] >= 0.5 or self.iter >= self.spec.timestep_limit
+  def terminationFn(self, state, action=None, nextState=None):
+    return state[-1] >= 0.5 or self.iter >= self.spec.timestep_limit
 
   def state_range(self):
     return [(-180.0, 180.0),  # positions
@@ -129,23 +132,23 @@ class BasketballVelocityEnv:
             (-180.0, 180.0),
             (-180.0, 180.0),
             (-180.0, 180.0),
-            (-180.0, 180.0),  # velocities (max RPM)
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
+            (-30.0, 30.0),  # velocities (max RPM)
+            (-120.0, 120.0),
+            (-120.0, 120.0),
+            (-90.0, 90.0),
+            (-30.0, 30.0),
+            (-90.0, 90.0),
+            (-30.0, 30.0),
             (0.0, 1.0)]       # release
 
   def action_range(self):
-    return [(-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
+    return [(-30.0, 30.0),  # velocities (max RPM)
+            (-120.0, 120.0),
+            (-120.0, 120.0),
+            (-90.0, 90.0),
+            (-30.0, 30.0),
+            (-90.0, 90.0),
+            (-30.0, 30.0),
             (0.0, 1.0)]
 
   def __del__(self):
@@ -169,7 +172,7 @@ class BasketballAccelerationEnv:
       np.zeros([8], dtype=np.float32)]) # angpos, angvel, release
     self.angles = self.initial_state.copy()
     self.goal = goal
-    self.sim = None
+    self.armsim = None
     self.time_render = None
     self.fps = fps
     self.iter = 0
@@ -222,10 +225,10 @@ class BasketballAccelerationEnv:
 
   def render(self, mode="human", close=False):
     pos = physx.forwardKinematics(self.lengths, self.angles)
-    if self.sim == None:
-      self.sim = simulation.Arm()
-      self.sim.default_length = self.lengths
-    self.sim.setPositions(pos)
+    if self.armsim == None:
+      self.armsim = simulation.Arm()
+      self.armsim.default_length = self.lengths
+    self.armsim.setPositions(pos)
     t = time.time()
     if self.time_render == None or self.time_render < t:
       self.time_render = t + 1.0 / self.fps
@@ -234,9 +237,9 @@ class BasketballAccelerationEnv:
       self.time_render += 1.0 / self.fps
 
   def close(self):
-    if self.sim != None:
-      del self.sim
-      self.sim = None
+    if self.armsim != None:
+      del self.armsim
+      self.armsim = None
 
   def seed(self, seed=None):
     pass
@@ -273,8 +276,8 @@ class BasketballAccelerationEnv:
     # use a kernel distance
     return np.exp(-np.dot(dp, dp))
 
-  def terminationFn(self, state, action):
-    return action[7] >= 0.5 or self.iter >= self.spec.timestep_limit
+  def terminationFn(self, state, action=None, nextState=None):
+    return state[-1] >= 0.5 or self.iter >= self.spec.timestep_limit
 
   def state_range(self):
     return [(-180.0, 180.0),  # positions
@@ -284,13 +287,13 @@ class BasketballAccelerationEnv:
             (-180.0, 180.0),
             (-180.0, 180.0),
             (-180.0, 180.0),
-            (-180.0, 180.0),  # velocities (max RPM)
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
+            (-30.0, 30.0),  # velocities (max RPM)
+            (-120.0, 120.0),
+            (-120.0, 120.0),
+            (-90.0, 90.0),
+            (-30.0, 30.0),
+            (-90.0, 90.0),
+            (-30.0, 30.0),
             (0.0, 1.0)]       # release
 
   def action_range(self):

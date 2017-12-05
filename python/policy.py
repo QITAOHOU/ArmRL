@@ -30,15 +30,24 @@ class BasePolicy: # sample-based policy
       return actions[random.randint(0, len(actions) - 1)]
 
 class EpsilonGreedyPolicy(BasePolicy):
-  def __init__(self, epsilon=0.1, getActionsFn=None, distributionFn=None):
+  def __init__(self, epsilon=0.1, getActionsFn=None, distributionFn=None,
+      randomFn=None):
     super().__init__(getActionsFn, distributionFn)
+    self.randomFn = randomFn
+    if self.randomFn == None:
+      self.randomFn = BasePolicy(getActionsFn)
     self.epsilon = epsilon
 
   def __call__(self, state):
-    actions = self.getActions(state)
+    if self.getActions == None:
+      return np.array([])
     if self.distribution == None or random.random() < self.epsilon:
-      return actions[random.randint(0, len(actions) - 1)]
+      return self.randomFn(state)
     else:
-      dist = self.distribution(np.concatenate([repmat(state, len(actions), 1),
-        np.array(actions)], axis=1))[:actions.shape[0], :]
+      actions = self.getActions(state)
+      if type(actions) != type(np.array([])):
+        actions = np.array(actions)
+      dist = self.distribution(np.concatenate([
+        repmat(state, actions.shape[0], 1), actions],
+        axis=1))[:actions.shape[0], :]
       return actions[np.argmax(dist)]
