@@ -48,13 +48,16 @@ def main():
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
       goal=[5, 0, 0],
       initialLengths=np.array([0, 0, 1, 1, 0, 0, 0]),
-      initialAngles=np.array([0, 45, 0, 0, 0, 0, 0]))
+      initialAngles=np.array([-5, 45, -10, 0, 0, 0, 0]))
 
   # create which space and processor that we want for the states and actions
   stateSpace = ContinuousSpace(ranges=env.state_range())
   actionRange = env.action_range()
-  actionSpace = DiscreteSpace(intervals=[30 for i in range(3)] + [1],
-      ranges=[actionRange[0], actionRange[1], actionRange[2], actionRange[7]])
+  actionSpace = DiscreteSpace(intervals=[15 for i in range(3)] + [1],
+      ranges=[actionRange[0],
+              actionRange[1],
+              actionRange[2],
+              actionRange[7]])
   processor = JointProcessor(actionSpace)
 
   # create the model and policy functions
@@ -64,9 +67,8 @@ def main():
     print("loading params...")
     modelFn.load_params(args.load_params)
   softmax = lambda s: np.exp(s) / np.sum(np.exp(s))
-  allActions = actionSpace.sampleAll() # save actions for faster
   policyFn = EpsilonGreedyPolicy(epsilon=0.5,
-      getActionsFn=lambda state: allActions,
+      getActionsFn=lambda state: actionSpace.sample(1024),
       distributionFn=lambda qstate: softmax(modelFn(qstate)))
   dataset = Trajectory(0.9999)
   if args.logfile:

@@ -14,10 +14,12 @@ from policy import EpsilonGreedyPolicy
 from memory import Trajectory
 
 def createAction(mlaction):
-  joint1 = mlaction[0]
-  joint2 = mlaction[1]
-  release = mlaction[2]
-  return np.array([0, joint1, joint2, 0, 0, 0, 0, release],
+  joint0 = mlaction[0]
+  joint1 = mlaction[1]
+  joint2 = mlaction[2]
+  joint3 = mlaction[3]
+  release = mlaction[4]
+  return np.array([joint0, joint1, joint2, joint3, 0, 0, 0, release],
       dtype=np.float32)
 
 stopsig = False
@@ -45,21 +47,23 @@ def main():
 
   # create the basketball environment
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
-      goal=[0, 5, 0],
-      initialLengths=np.array([0, 0, 1, 1, 0, 0, 0]),
-      initialAngles=np.array([0, 45, 0, 0, 0, 0, 0]))
+      goal=[5, 0, 0],
+      initialLengths=np.array([0, 0, 1, 1, 0, 1, 0]),
+      initialAngles=np.array([-5, 45, -10, -10, 0, 0, 0]))
 
   # create which space and processor that we want for the states and actions
   stateSpace = ContinuousSpace(ranges=env.state_range())
   actionRange = env.action_range()
-  actionSpace = DiscreteSpace(intervals=[15 for i in range(2)] + [1],
-      ranges=[actionRange[1],
+  actionSpace = DiscreteSpace(intervals=[15 for i in range(4)] + [1],
+      ranges=[actionRange[0],
+              actionRange[1],
               actionRange[2],
+              actionRange[3],
               actionRange[7]])
   processor = JointProcessor(actionSpace)
 
   # create the model and policy functions
-  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 64, 32, 1],
+  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 128, 128, 1],
       alpha=0.001, use_gpu=True)
   if args.load_params:
     print("loading params...")

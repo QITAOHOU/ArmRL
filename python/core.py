@@ -92,6 +92,26 @@ class DiscreteSpace:
       sampleset[i, idx[i, :]] = 1
     return sampleset
 
+  def sampleOrderedBatch(self, batch_id, batch_size=32):
+    N = np.prod(self.bins)
+    if batch_id * batch_size >= N:
+      print("Warning: sampling nothing since batch id goes beyond space range")
+      return np.array([[]], dtype=np.float32)
+    idx = np.array(range(batch_id * batch_size,
+      min((batch_id + 1) * batch_size, N)))
+    digits = np.cumprod(self.bins)
+    shift = np.concatenate([[1], digits[:-1]])
+    offset = np.cumsum(np.concatenate([[0], self.bins[:-1]]))
+    idx = np.floor_divide(
+        np.mod(repmat(np.array([idx]).T, 1, self.bins.shape[0]),
+          repmat(np.array([digits]), idx.shape[0], 1)),
+        repmat(np.array([shift]), idx.shape[0], 1)) + \
+            repmat(np.array([offset]), idx.shape[0], 1)
+    sampleset = np.zeros([idx.shape[0], self.n])
+    for i in range(idx.shape[0]):
+      sampleset[i, idx[i, :]] = 1
+    return sampleset
+
   def contains(self, x):
     return x.shape[0] == self.bins.shape[0] and \
         sum([self.ranges[i, 0] <= x[i] and x[i] <= self.ranges[i, 1]
