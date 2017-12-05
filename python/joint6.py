@@ -17,8 +17,11 @@ def createAction(mlaction):
   joint0 = mlaction[0]
   joint1 = mlaction[1]
   joint2 = mlaction[2]
-  release = mlaction[3]
-  return np.array([joint0, joint1, joint2, 0, 0, 0, 0, release],
+  joint3 = mlaction[3]
+  joint4 = mlaction[4]
+  joint5 = mlaction[5]
+  release = mlaction[6]
+  return np.array([joint0, joint1, joint2, joint3, joint4, joint5, 0, release],
       dtype=np.float32)
 
 stopsig = False
@@ -49,21 +52,24 @@ def main():
   # create the basketball environment
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
       goal=[0, 5, 0],
-      initialLengths=np.array([0, 0, 1, 1, 0, 0, 0]),
-      initialAngles=np.array([-5, 45, -10, 0, 0, 0, 0]))
+      initialLengths=np.array([0, 0, 1, 1, 0, 1, 1]),
+      initialAngles=np.array([-5, 45, -10, -10, -5, -10, 0]))
 
   # create which space and processor that we want for the states and actions
   stateSpace = ContinuousSpace(ranges=env.state_range())
   actionRange = env.action_range()
-  actionSpace = DiscreteSpace(intervals=[15 for i in range(3)] + [1],
+  actionSpace = DiscreteSpace(intervals=[15 for i in range(6)] + [1],
       ranges=[actionRange[0],
               actionRange[1],
               actionRange[2],
+              actionRange[3],
+              actionRange[4],
+              actionRange[5],
               actionRange[7]])
   processor = JointProcessor(actionSpace)
 
   # create the model and policy functions
-  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 128, 64, 1],
+  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 1024, 512, 1],
       alpha=0.001, use_gpu=True)
   if args.load_params:
     print("loading params...")

@@ -32,6 +32,8 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("--render", action="store_true",
       help="Render the state")
+  parser.add_argument("--render_interval", type=int, default=10,
+      help="Number of rollouts to skip before rendering")
   parser.add_argument("--num_rollouts", type=int, default=-1,
       help="Number of max rollouts")
   parser.add_argument("--logfile", type=str,
@@ -47,7 +49,7 @@ def main():
 
   # create the basketball environment
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
-      goal=[5, 0, 0],
+      goal=[0, 5, 0],
       initialLengths=np.array([0, 0, 1, 1, 0, 1, 0]),
       initialAngles=np.array([-5, 45, -10, -10, 0, 0, 0]))
 
@@ -63,7 +65,7 @@ def main():
   processor = JointProcessor(actionSpace)
 
   # create the model and policy functions
-  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 128, 128, 1],
+  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 256, 128, 1],
       alpha=0.001, use_gpu=True)
   if args.load_params:
     print("loading params...")
@@ -92,7 +94,7 @@ def main():
       dataset.append(state, action, reward)
       state = nextState
       steps += 1
-      if args.render and rollout % 10 == 0:
+      if args.render and rollout % args.render_interval == 0:
         env.render()
     if stopsig:
       break

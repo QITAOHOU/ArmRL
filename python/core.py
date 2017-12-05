@@ -54,7 +54,7 @@ class JointProcessor:
 
 #class DiscreteSpace(gym.Space):
 class DiscreteSpace:
-  def __init__(self, ranges=[], intervals=[]):
+  def __init__(self, ranges=[], intervals=[], batch_size=32):
     ranges = np.array(ranges, dtype=np.float32)
     intervals = np.array(intervals, dtype=np.float32)
     assert ranges.shape[0] == intervals.shape[0]
@@ -63,6 +63,9 @@ class DiscreteSpace:
     self.bins = np.array([int(math.floor(ranges[i, 1] - ranges[i, 0]) /
       intervals[i]) + 1 for i in range(ranges.shape[0])], dtype=np.int)
     self.n = np.sum(self.bins)
+
+    self.iter = 0
+    self.batch_size = batch_size
 
   def sample(self, N=1):
     sampleset = np.zeros([N, self.n])
@@ -92,11 +95,18 @@ class DiscreteSpace:
       sampleset[i, idx[i, :]] = 1
     return sampleset
 
-  def sampleOrderedBatch(self, batch_id, batch_size=32):
+  def __iter__(self):
+    self.iter = 0
+    return self
+
+  def __next__(self):
+    batch_id = self.iter
+    batch_size = self.batch_size
     N = np.prod(self.bins)
     if batch_id * batch_size >= N:
-      print("Warning: sampling nothing since batch id goes beyond space range")
-      return np.array([[]], dtype=np.float32)
+      raise StopIteration
+    self.iter += 1
+
     idx = np.array(range(batch_id * batch_size,
       min((batch_id + 1) * batch_size, N)))
     digits = np.cumprod(self.bins)

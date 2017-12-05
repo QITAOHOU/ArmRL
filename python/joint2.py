@@ -30,6 +30,8 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("--render", action="store_true",
       help="Render the state")
+  parser.add_argument("--render_interval", type=int, default=10,
+      help="Number of rollouts to skip before rendering")
   parser.add_argument("--num_rollouts", type=int, default=-1,
       help="Number of max rollouts")
   parser.add_argument("--logfile", type=str,
@@ -88,7 +90,7 @@ def main():
       dataset.append(state, action, reward)
       state = nextState
       steps += 1
-      if args.render and rollout % 10 == 0:
+      if args.render and rollout % args.render_interval == 0:
         env.render()
     if stopsig:
       break
