@@ -52,27 +52,10 @@ class JointProcessor:
       discrete[binidx + offsets[i]] = 1.0
     return discrete
 
-  def process_dataset(self, dataset):
-    # process the dataset for learning
-    qstates = np.concatenate([dataset["states"], dataset["actions"]], axis=1)
-    qstates_ = np.concatenate([dataset["nextStates"], dataset["nextActions"]],
-        axis=1)
-    Q_ = self.model(qstates_).T[0]
-    #Q_ = []
-    #nextActions = self.space.sample(1024) # sample a bunch of random actions
-    #for nextState in list(dataset["nextStates"]):
-    #  Q = self.model(np.concatenate([repmat(nextState, nextActions.shape[0], 1),
-    #    nextActions], axis=1))
-    #  Q = Q[:nextActions.shape[0], :]
-    #  Q_.append(np.max(Q))
-    #Q_ = np.array(Q_)
-    qvalues = dataset["rewards"] + self.gamma * Q_
-    return qstates, qvalues
-
   def process_Q(self, dataset):
     qstates = np.concatenate([dataset["states"], dataset["actions"]], axis=1)
     qvalues = dataset["values"]
-    return qstates, qvalues
+    return { "qstates": qstates, "qvalues": qvalues }
 
 #class DiscreteSpace(gym.Space):
 class DiscreteSpace:

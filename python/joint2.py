@@ -11,7 +11,7 @@ from core import ContinuousSpace, \
                  JointProcessor
 from models import MxFullyConnected
 from policy import EpsilonGreedyPolicy
-from memory import Trajectory
+from memory import ReplayBuffer
 
 def createAction(mlaction):
   joint1 = mlaction[0]
@@ -51,7 +51,7 @@ def main():
       initialLengths=np.array([0, 0, 1, 1, 0, 0, 0]),
       initialAngles=np.array([0, 45, 0, 0, 0, 0, 0]))
 
-  # create which space and processor that we want for the states and actions
+  # create space
   stateSpace = ContinuousSpace(ranges=env.state_range())
   actionRange = env.action_range()
   actionSpace = DiscreteSpace(intervals=[15 for i in range(2)] + [1],
@@ -66,11 +66,12 @@ def main():
   if args.load_params:
     print("loading params...")
     modelFn.load_params(args.load_params)
+
   softmax = lambda s: np.exp(s) / np.sum(np.exp(s))
   policyFn = EpsilonGreedyPolicy(epsilon=0.5,
       getActionsFn=lambda state: actionSpace.sample(1024),
       distributionFn=lambda qstate: softmax(modelFn(qstate)))
-  dataset = Trajectory(0.9999)
+  dataset = ReplayBuffer()
   if args.logfile:
     log = open(args.logfile, "a")
 
@@ -87,7 +88,7 @@ def main():
       action = policyFn(state)
       nextState, reward, done, info = env.step(
           createAction(processor.process_env_action(action)))
-      dataset.append(state, action, reward)
+      dataset.append(state, action, reward, nextState)
       state = nextState
       steps += 1
       if args.render and rollout % args.render_interval == 0:
@@ -96,12 +97,7 @@ def main():
       break
 
     dataset.reset() # push trajectory into the dataset buffer
-    data = dataset.sample(1024)
-    #dataset.clear() # remove everything from the buffer
-    modelFn.fit({
-      "qstates": np.concatenate([data["states"], data["actions"]], axis=1),
-      "qvalues": data["values"]
-      }, num_epochs=10)
+    modelFn.fit(processor.process_Q(dataset.sample(1024)), num_epochs=10)
     print("Reward:", reward if (reward >= 0.00001) else 0, "with Error:",
         modelFn.score(), "with steps:", steps)
     if args.logfile:

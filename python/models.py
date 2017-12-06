@@ -56,7 +56,8 @@ class MxFullyConnected:
         label_shapes=[("qvalue", (self.batch_size, self.output_size))])
     self.model.init_params()
     self.model.init_optimizer(optimizer="adam", optimizer_params={
-      "learning_rate": self.alpha
+      "learning_rate": self.alpha,
+      "wd": 0.01
       })
 
   def preprocessBatching(self, x):
@@ -96,7 +97,8 @@ class MxFullyConnected:
     qstates = mx.io.NDArrayIter(
         data=self.preprocessBatching(qstate), batch_size=self.batch_size,
         data_name="qstate", label_name="qvalue")
-    return [QV.asnumpy() for QV in self.model.predict(qstates)]
+    return np.array([QV.asnumpy()
+      for QV in self.model.predict(qstates)])[:qstate.shape[0], :]
 
   def __call__(self, qstate):
     return self.predict(qstate)
@@ -110,3 +112,10 @@ class MxFullyConnected:
 
   def save_params(self, params_filename):
     self.model.save_params(params_filename)
+
+#class PoWER:
+
+
+#class Actor:
+#  def __init__(self):
+    
