@@ -113,9 +113,10 @@ class MxFullyConnected:
   def save_params(self, params_filename):
     self.model.save_params(params_filename)
 
-#class PoWER:
-
-
 #class Actor:
 #  def __init__(self):
-    
+#    # TODO: add neural net to estimate p(a|V,s)
+
+#class Critic:
+#  def __init__(self):
+#    # TODO: add neural net to estimate p(V|s,a)
