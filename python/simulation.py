@@ -33,7 +33,7 @@ class Arm(object):
         (-180.0, 180.0)]
     self.num_joints = len(self.joint_limits)
 
-    self.default_length = [ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 ]
+    self.default_length = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
     # open the gazebo simulation
     libarm.arm_plugin_init()
