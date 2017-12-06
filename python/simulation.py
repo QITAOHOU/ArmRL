@@ -2,16 +2,16 @@ import ctypes, os
 import numpy as np
 
 lib_dirs = os.getenv("GAZEBO_PLUGIN_PATH").split(":")
-lib_name = ""
+libarm_name = ""
 for dir_name in lib_dirs:
   if os.path.isfile(dir_name + "/libarm_plugin.so"):
-    lib_name = dir_name + "/libarm_plugin.so"
+    libarm_name = dir_name + "/libarm_plugin.so"
     break
-lib = ctypes.cdll.LoadLibrary(lib_name)
-lib.arm_plugin_init.resType = None
-lib.arm_plugin_destroy.resType = None
-lib.arm_plugin_setPositions.resType = None
-lib.arm_plugin_setPositions.argTypes = [ \
+libarm = ctypes.cdll.LoadLibrary(libarm_name)
+libarm.arm_plugin_init.resType = None
+libarm.arm_plugin_destroy.resType = None
+libarm.arm_plugin_setPositions.resType = None
+libarm.arm_plugin_setPositions.argTypes = [ \
     ctypes.c_double, ctypes.c_double, ctypes.c_double, \
     ctypes.c_double, ctypes.c_double, ctypes.c_double, \
     ctypes.c_double, ctypes.c_double, ctypes.c_double, \
@@ -33,16 +33,16 @@ class Arm(object):
         (-180.0, 180.0)]
     self.num_joints = len(self.joint_limits)
 
-    self.default_length = [ 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 ]
+    self.default_length = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
     # open the gazebo simulation
-    lib.arm_plugin_init()
+    libarm.arm_plugin_init()
 
   def __del__(self):
-    lib.arm_plugin_destroy()
+    libarm.arm_plugin_destroy()
 
   def setPositions(self, pos):
-    lib.arm_plugin_setPositions(
+    libarm.arm_plugin_setPositions(
         ctypes.c_double(pos[0, 0]),
         ctypes.c_double(pos[0, 1]),
         ctypes.c_double(pos[0, 2]),

@@ -11,16 +11,16 @@ from core import ContinuousSpace, \
                  JointProcessor
 from models import MxFullyConnected
 from policy import EpsilonGreedyPolicy
-from memory import Trajectory
+from memory import ReplayBuffer
 
 def createAction(mlaction):
   joint0 = mlaction[0]
   joint1 = mlaction[1]
   joint2 = mlaction[2]
   joint3 = mlaction[3]
-  joint4 = mlaction[4]
+  joint5 = mlaction[4]
   release = mlaction[5]
-  return np.array([joint0, joint1, joint2, joint3, 0, joint4, 0, release],
+  return np.array([joint0, joint1, joint2, joint3, 0, joint5, 0, release],
       dtype=np.float32)
 
 stopsig = False
@@ -33,6 +33,8 @@ def main():
   parser = argparse.ArgumentParser()
   parser.add_argument("--render", action="store_true",
       help="Render the state")
+  parser.add_argument("--render_interval", type=int, default=10,
+      help="Number of rollouts to skip before rendering")
   parser.add_argument("--num_rollouts", type=int, default=-1,
       help="Number of max rollouts")
   parser.add_argument("--logfile", type=str,
@@ -50,12 +52,12 @@ def main():
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
       goal=[0, 5, 0],
       initialLengths=np.array([0, 0, 1, 1, 0, 1, 1]),
-      initialAngles=np.array([-5, 45, -10, -10, 0, -5, 0]))
+      initialAngles=np.array([-5, 45, -10, -10, 0, -10, 0]))
 
-  # create which space and processor that we want for the states and actions
+  # create space
   stateSpace = ContinuousSpace(ranges=env.state_range())
   actionRange = env.action_range()
-  actionSpace = DiscreteSpace(intervals=[30 for i in range(5)] + [1],
+  actionSpace = DiscreteSpace(intervals=[15 for i in range(5)] + [1],
       ranges=[actionRange[0],
               actionRange[1],
               actionRange[2],
@@ -65,17 +67,17 @@ def main():
   processor = JointProcessor(actionSpace)
 
   # create the model and policy functions
-  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 128, 128, 1],
+  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n, 512, 256, 1],
       alpha=0.001, use_gpu=True)
   if args.load_params:
     print("loading params...")
     modelFn.load_params(args.load_params)
+
   softmax = lambda s: np.exp(s) / np.sum(np.exp(s))
-  allActions = actionSpace.sampleAll() # save actions for faster
   policyFn = EpsilonGreedyPolicy(epsilon=0.5,
-      getActionsFn=lambda state: allActions,
+      getActionsFn=lambda state: actionSpace.sample(1024),
       distributionFn=lambda qstate: softmax(modelFn(qstate)))
-  dataset = Trajectory(0.9999)
+  dataset = ReplayBuffer()
   if args.logfile:
     log = open(args.logfile, "a")
 
@@ -92,21 +94,16 @@ def main():
       action = policyFn(state)
       nextState, reward, done, info = env.step(
           createAction(processor.process_env_action(action)))
-      dataset.append(state, action, reward)
+      dataset.append(state, action, reward, nextState)
       state = nextState
       steps += 1
-      if args.render and rollout % 10 == 0:
+      if args.render and rollout % args.render_interval == 0:
         env.render()
     if stopsig:
       break
 
     dataset.reset() # push trajectory into the dataset buffer
-    data = dataset.sample(1024)
-    #dataset.clear() # remove everything from the buffer
-    modelFn.fit({
-      "qstates": np.concatenate([data["states"], data["actions"]], axis=1),
-      "qvalues": data["values"]
-      }, num_epochs=10)
+    modelFn.fit(processor.process_Q(dataset.sample(1024)), num_epochs=10)
     print("Reward:", reward if (reward >= 0.00001) else 0, "with Error:",
         modelFn.score(), "with steps:", steps)
     if args.logfile:
