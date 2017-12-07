@@ -66,7 +66,7 @@ class BasketballVelocityEnv:
     return nextState, reward, done, {}
 
   def render(self, mode="human", close=False):
-    pos = physx.forwardKinematics(self.lengths, self.angles)
+    pos = physx.forwardKinematics(self.lengths, self.angles[:7])
     if self.armsim == None:
       self.armsim = simulation.Arm()
       self.armsim.default_length = self.lengths
@@ -224,7 +224,7 @@ class BasketballAccelerationEnv:
     return nextState, reward, done, {}
 
   def render(self, mode="human", close=False):
-    pos = physx.forwardKinematics(self.lengths, self.angles)
+    pos = physx.forwardKinematics(self.lengths, self.angles[:7])
     if self.armsim == None:
       self.armsim = simulation.Arm()
       self.armsim.default_length = self.lengths
