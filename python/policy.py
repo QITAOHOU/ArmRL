@@ -43,8 +43,8 @@ class EpsilonGreedyPolicy(BasePolicy):
       return np.array([])
     actions = self.getActions(state)
     if self.distribution == None or random.random() < self.epsilon:
-      return actions[random.randint(0, actions.shape[0] - 1)]
+      return actions[random.randint(0, actions.shape[0] - 1), :]
     else:
       dist = self.distribution(np.concatenate([
         repmat(state, actions.shape[0], 1), actions], axis=1))
-      return actions[np.argmax(dist)]
+      return actions[np.argmax(dist), :]

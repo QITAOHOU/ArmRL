@@ -1,6 +1,8 @@
 import numpy as np
+from numpy.matlib import repmat
 import mxnet as mx
 import os
+import memory
 
 class MxFullyConnected:
   def __init__(self, sizes=[1, 1], batch_size=32, alpha=0.01, use_gpu=False):
@@ -112,6 +114,64 @@ class MxFullyConnected:
 
   def save_params(self, params_filename):
     self.model.save_params(params_filename)
+
+class PoWERDistribution:
+  def __init__(self, n_states, n_actions, sigma=1.0):
+    self.theta = np.random.random([n_states, n_actions])
+    #self.sigma = np.random.random([n_states, n_actions])
+    self.sigma = np.ones([n_states, n_actions], dtype=np.float32) * sigma
+    self.dataset = []
+    self.eps = None
+
+  def predict(self, currentState):
+    vectored = False
+    if len(currentState.shape) == 1:
+      currentState = np.array([currentState])
+      vectored = True
+    num_items = 1
+    alpha = 1.0
+    s = np.array([x["state"] for x in self.dataset])
+    print(currentState.shape, s.shape)
+    RBF = lambda s_t: np.exp(-alpha * np.dot((s_t - s).T, s_t - s)) / s.shape[0]
+    self.eps = np.random.normal(
+        scale=repmat(self.sigma.flatten(), num_items, 1))
+    W = self.theta + np.reshape(self.eps[0, :], self.theta.shape)
+    if len(self.dataset) == 0:
+      print("zeros")
+      a = np.dot(W.T, np.zeros(currentState.shape).T)
+    else:
+      print("power")
+      print("Wshape", W.T.shape)
+      a = np.dot(W.T, RBF(currentState))
+      print("OLDASHAPE", a.shape)
+    if vectored:
+      a = a.flatten()
+    print("ASHAPE", a.shape)
+    return a
+
+  def append(self, state, action, nextState, reward):
+    self.dataset.append({
+      "state": state,
+      "action": action,
+      "nextState": nextState,
+      "reward": reward,
+      "eps": self.eps
+      })
+
+  def fit(self):
+    dataset = memory.Bellman(self.dataset, 1.0)
+    qeps = [np.multiply(x["value"], x["eps"]) for x in dataset]
+    qvalues = [x["value"] for x in dataset]
+    self.theta = self.theta + np.divide(qeps, qvalues)
+
+  def clear(self):
+    self.dataset = []
+
+  def load_params(self, params_filename):
+    self.theta = np.load(params_filename)
+
+  def save_params(self, params_filename):
+    np.save(params_filename, self.theta)
 
 #class Actor:
 #  def __init__(self):
