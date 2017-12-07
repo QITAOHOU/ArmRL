@@ -41,6 +41,7 @@ class EpsilonGreedyPolicy(BasePolicy):
   def __call__(self, state):
     if self.getActions == None:
       return np.array([])
+    actions = self.getActions(state)
     if self.distribution == None or random.random() < self.epsilon:
       return actions[random.randint(0, actions.shape[0] - 1)]
     else:
