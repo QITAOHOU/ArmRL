@@ -55,7 +55,7 @@ class JointProcessor:
   def process_Q(self, dataset):
     qstates = np.concatenate([dataset["states"], dataset["actions"]], axis=1)
     qvalues = dataset["values"]
-    return { "qstates": qstates, "qvalues": qvalues }
+    return { "data": qstates, "label": qvalues }
 
 #class DiscreteSpace(gym.Space):
 class DiscreteSpace:

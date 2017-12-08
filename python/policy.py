@@ -17,17 +17,10 @@ class BasePolicy: # sample-based policy
     # otherwise we sample
     if self.distribution:
       dist = self.distribution(np.concatenate([
-        repmat(state, actions.shape[0], 1), actions], axis=1))
-      dist /= np.sum(dist) # normalize
-      dist = np.cumsum(dist)
-      dist[-1] = 1.0
-      p = random.random()
-      for i in range(dist.shape[0]):
-        if p <= dist[i]:
-          return actions[i]
-      return actions[-1]
+        repmat(state, len(actions), 1), np.array(actions)], axis=1))
+      return actions[np.random.choice(dist.shape[0], p=dist)]
     else:
-      return actions[random.randint(0, actions.shape[0] - 1)]
+      return actions[np.random.choice(len(actions))]
 
 class EpsilonGreedyPolicy(BasePolicy):
   def __init__(self, epsilon=0.1, getActionsFn=None, distributionFn=None,
@@ -42,9 +35,11 @@ class EpsilonGreedyPolicy(BasePolicy):
     if self.getActions == None:
       return np.array([])
     actions = self.getActions(state)
-    if self.distribution == None or random.random() < self.epsilon:
-      return actions[random.randint(0, actions.shape[0] - 1), :]
-    else:
+    if type(actions) == type(np.array([])):
+      actions = list(actions)
+    if self.distribution and random.random() >= self.epsilon:
       dist = self.distribution(np.concatenate([
-        repmat(state, actions.shape[0], 1), actions], axis=1))
-      return actions[np.argmax(dist), :]
+        repmat(state, len(actions), 1), np.array(actions)], axis=1))
+      return actions[np.argmax(dist)]
+    else:
+      return actions[np.random.choice(len(actions))]

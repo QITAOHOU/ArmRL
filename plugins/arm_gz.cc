@@ -88,7 +88,7 @@ void ArmPlugin::CreateModel(void) {
   }
 }
 
-void ArmPlugin::OnMsg(ArmPoseRequestPtr &_msg) {
+void ArmPlugin::OnMsg(ConstArmPoseRequestPtr &_msg) {
   // grab the poses from the message
   std::vector<arma::vec> pose(8);
   pose[0] = arma::vec({ 0, 0, 0 });

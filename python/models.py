@@ -17,8 +17,8 @@ class MxFullyConnected:
     self.avg_error = 0.0
 
     # define feeds
-    self.x = mx.sym.Variable("qstate")
-    self.y = mx.sym.Variable("qvalue")
+    self.x = mx.sym.Variable("data")
+    self.y = mx.sym.Variable("label")
 
     # define memory
     self.w = []
@@ -49,13 +49,13 @@ class MxFullyConnected:
     # define training
     if use_gpu:
       self.model = mx.mod.Module(self.y_, context=mx.gpu(0),
-          data_names=["qstate"], label_names=["qvalue"])
+          data_names=["data"], label_names=["label"])
     else:
       self.model = mx.mod.Module(self.y_, context=mx.cpu(0), # start w/ cpu 4now
-          data_names=["qstate"], label_names=["qvalue"])
+          data_names=["data"], label_names=["label"])
     self.model.bind(
-        data_shapes=[("qstate", (self.batch_size, self.input_size))],
-        label_shapes=[("qvalue", (self.batch_size, self.output_size))])
+        data_shapes=[("data", (self.batch_size, self.input_size))],
+        label_shapes=[("label", (self.batch_size, self.output_size))])
     self.model.init_params()
     self.model.init_optimizer(optimizer="adam", optimizer_params={
       "learning_rate": self.alpha,
@@ -71,17 +71,17 @@ class MxFullyConnected:
     return x
 
   def fit(self, dataset, num_epochs=1):
-    qstates = dataset["qstates"]
-    qvalues = dataset["qvalues"]
-    if qvalues.size == 0:
+    data = dataset["data"]
+    label = dataset["label"]
+    if label.size == 0:
       return
-    if len(qstates.shape) == 2 and len(qvalues.shape) == 1:
-      qvalues = np.array([qvalues]).T
+    if len(data.shape) == 2 and len(label.shape) == 1:
+      label = np.array([label]).T
     train_iter = mx.io.NDArrayIter(
-        data=self.preprocessBatching(qstates),
-        label=self.preprocessBatching(qvalues),
+        data=self.preprocessBatching(data),
+        label=self.preprocessBatching(label),
         batch_size=self.batch_size, shuffle=True,
-        data_name="qstate", label_name="qvalue")
+        data_name="data", label_name="label")
     error = mx.metric.MSE()
     total_error = 0.0
     for epoch in range(num_epochs):
@@ -95,15 +95,15 @@ class MxFullyConnected:
       total_error += error.get()[1]
     self.avg_error = total_error / num_epochs
 
-  def predict(self, qstate):
-    qstates = mx.io.NDArrayIter(
-        data=self.preprocessBatching(qstate), batch_size=self.batch_size,
-        data_name="qstate", label_name="qvalue")
+  def predict(self, data):
+    data_iter = mx.io.NDArrayIter(
+        data=self.preprocessBatching(data), batch_size=self.batch_size,
+        data_name="data", label_name="label")
     return np.array([QV.asnumpy()
-      for QV in self.model.predict(qstates)])[:qstate.shape[0], :]
+      for QV in self.model.predict(data_iter)])[:data.shape[0], :]
 
-  def __call__(self, qstate):
-    return self.predict(qstate)
+  def __call__(self, data):
+    return self.predict(data)
 
   def score(self):
     return self.avg_error
@@ -115,6 +115,11 @@ class MxFullyConnected:
   def save_params(self, params_filename):
     self.model.save_params(params_filename)
 
+def RBF(s_t, s):
+  alpha = 1.0
+  return np.sum(np.exp(-alpha * np.multiply(s_t - s, s_t - s)), axis=0) / \
+      float(s.shape[0])
+
 class PoWERDistribution:
   def __init__(self, n_states, n_actions, sigma=1.0):
     self.theta = np.random.random([n_states, n_actions])
@@ -122,31 +127,21 @@ class PoWERDistribution:
     self.sigma = np.ones([n_states, n_actions], dtype=np.float32) * sigma
     self.dataset = []
     self.eps = None
+    self.error = 0
 
-  def predict(self, currentState):
+  def predict(self, currentState): # sample
     vectored = False
     if len(currentState.shape) == 1:
       currentState = np.array([currentState])
       vectored = True
-    num_items = 1
-    alpha = 1.0
-    s = np.array([x["state"] for x in self.dataset])
-    print(currentState.shape, s.shape)
-    RBF = lambda s_t: np.exp(-alpha * np.dot((s_t - s).T, s_t - s)) / s.shape[0]
-    self.eps = np.random.normal(
-        scale=repmat(self.sigma.flatten(), num_items, 1))
-    W = self.theta + np.reshape(self.eps[0, :], self.theta.shape)
-    if len(self.dataset) == 0:
-      print("zeros")
-      a = np.dot(W.T, np.zeros(currentState.shape).T)
-    else:
-      print("power")
-      print("Wshape", W.T.shape)
-      a = np.dot(W.T, RBF(currentState))
-      print("OLDASHAPE", a.shape)
+    self.eps = np.random.normal(scale=self.sigma.flatten())
+    W = self.theta + np.reshape(self.eps, self.theta.shape)
+    phi = np.array([
+      RBF(currentState, np.array([x["state"] for x in self.dataset]))]) \
+        if len(self.dataset) > 0 else np.zeros(currentState.shape)
+    a = np.dot(W.T, phi.T)
     if vectored:
       a = a.flatten()
-    print("ASHAPE", a.shape)
     return a
 
   def append(self, state, action, nextState, reward):
@@ -160,9 +155,17 @@ class PoWERDistribution:
 
   def fit(self):
     dataset = memory.Bellman(self.dataset, 1.0)
-    qeps = [np.multiply(x["value"], x["eps"]) for x in dataset]
-    qvalues = [x["value"] for x in dataset]
-    self.theta = self.theta + np.divide(qeps, qvalues)
+    weightedq = np.sum([x["value"] * x["eps"] for x in dataset], axis=0)
+    totalq = sum([x["value"] for x in dataset])
+    if totalq == 0.0:
+      self.error = 0
+      return
+    update = np.reshape(weightedq / totalq, self.theta.shape)
+    self.error = np.sum(np.square(update))
+    self.theta += update
+
+  def score(self):
+    return self.error
 
   def clear(self):
     self.dataset = []
@@ -173,10 +176,6 @@ class PoWERDistribution:
   def save_params(self, params_filename):
     np.save(params_filename, self.theta)
 
-#class Actor:
-#  def __init__(self):
-#    # TODO: add neural net to estimate p(a|V,s)
-
-#class Critic:
-#  def __init__(self):
-#    # TODO: add neural net to estimate p(V|s,a)
+class ActorCritic:
+  def __init__(self):
+    pass

@@ -4,6 +4,8 @@ from copy import deepcopy
 
 MAX_LIMIT = 10000
 
+# TODO: fixme
+
 def Bellman(d, gamma):
   d = deepcopy(d)
   values = []
@@ -43,10 +45,9 @@ class ReplayBuffer:
     dataset = []
     ends = []
     for d in self.D:
-      d = Bellman(d, gamma)
-      dataset += d
+      dataset += Bellman(d, gamma)
       ends.append(len(dataset))
-    idx = list(range(0, len(dataset)))
+    idx = list(range(len(dataset)))
     random.shuffle(idx)
 
     if num_items == -1:

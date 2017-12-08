@@ -62,9 +62,7 @@ def main():
     while not done:
       if stopsig:
         break
-      print(state.shape)
       action = modelFn.predict(state)
-      print(action.shape)
       nextState, reward, done, info = env.step(action)
       modelFn.append(state, action, nextState, reward)
       state = nextState

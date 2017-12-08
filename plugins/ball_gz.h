@@ -6,18 +6,12 @@
 #include <gazebo/transport/transport.hh>
 #include <gazebo/msgs/msgs.hh>
 #include <boost/shared_ptr.hpp>
-#include "arm_pose_request.pb.h"
 
 namespace gazebo {
-
-  typedef const boost::shared_ptr<
-    const arm_msgs::msgs::ArmPoseRequest>
-      ConstArmPoseRequestPtr;
-
-  class ArmPlugin : public WorldPlugin {
+  class BallPlugin : public WorldPlugin {
     public:
-      ArmPlugin(void);
-      ~ArmPlugin(void);
+      BallPlugin(void);
+      ~BallPlugin(void);
 
       void Load(physics::WorldPtr _parent, sdf::ElementPtr _sdf);
 
@@ -29,9 +23,9 @@ namespace gazebo {
       transport::SubscriberPtr sub;
 
       void Update(void);
-      void OnMsg(ConstArmPoseRequestPtr &_msg);
+      void OnMsg(ConstVector3dPtr &_msg);
       void CreateModel(void);
   };
 
-  GZ_REGISTER_WORLD_PLUGIN(ArmPlugin);
+  GZ_REGISTER_WORLD_PLUGIN(BallPlugin);
 }
