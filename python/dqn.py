@@ -6,7 +6,7 @@ import random
 import time
 import os
 import signal
-from environment import BasketballVelocityEnv, BasketballAccelerationEnv
+from environment import BasketballAccelerationEnv
 from core import ContinuousSpace, \
                  DiscreteSpace, \
                  JointProcessor
