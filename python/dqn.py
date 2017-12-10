@@ -33,6 +33,12 @@ def main():
       help="Load previously learned parameters from [LOAD_PARAMS]")
   parser.add_argument("--save_params", type=str,
       help="Save learned parameters to [SAVE_PARAMS]")
+  parser.add_argument("--gamma", type=float, default=0.9,
+      help="Discount factor")
+  parser.add_argument("--epsilon", type=float, default=0.1,
+      help="Random factor (for Epsilon-greedy)")
+  parser.add_argument("--eps_decay", action="store_true",
+      help="Let epsilon decay over time")
   args = parser.parse_args()
 
   signal.signal(signal.SIGINT, stopsigCallback)
@@ -42,7 +48,7 @@ def main():
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
       goal=[0, 5, 0],
       initialLengths=np.array([0, 0, 1, 1, 0, 1, 1]),
-      initialAngles=np.array([-5, 45, -10, -10, -5, -10, -5]))
+      initialAngles=np.array([0, 45, -10, -10, 0, -10, 0]))
 
   # create space
   stateSpace = ContinuousSpace(ranges=env.state_range())
@@ -58,7 +64,7 @@ def main():
     modelFn.load_params(args.load_params)
 
   softmax = lambda s: np.exp(s) / np.sum(np.exp(s))
-  policyFn = EpsilonGreedyPolicy(epsilon=0.5,
+  policyFn = EpsilonGreedyPolicy(epsilon=args.epsilon,
       getActionsFn=lambda state: actionSpace.sample(1024),
       distributionFn=lambda qstate: softmax(modelFn(qstate)))
   dataset = ReplayBuffer()
@@ -87,7 +93,16 @@ def main():
       break
 
     dataset.reset() # push trajectory into the dataset buffer
-    modelFn.fit(processor.process_Q(dataset.sample(1024)), num_epochs=10)
+    D = dataset.sample(1024, gamma=args.gamma)
+    QS0 = np.concatenate([D["states"], D["actions"]], axis=1)
+    nextActions = D["actions"]  # choosing the max action is a pain, leave that
+                                # up to the actor in the actor-critic models
+    Q1 = modelFn(np.concatenate([D["nextStates"], nextActions], axis=1))
+    R = np.array([D["rewards"]]).T + args.gamma * Q1
+    modelFn.fit({
+      "data": QS0,
+      "label": R
+      })
     print("Reward:", reward if (reward >= 0.00001) else 0, "with Error:",
         modelFn.score(), "with steps:", steps)
     if args.logfile:
@@ -95,7 +110,7 @@ def main():
           str(modelFn.score()) + "]\n")
 
     rollout += 1
-    if rollout % 100 == 0:
+    if args.eps_decay and rollout % 100 == 0:
       policyFn.epsilon *= 0.95
       print("Epsilon is now:", policyFn.epsilon)
 

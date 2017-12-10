@@ -142,13 +142,13 @@ class BasketballVelocityEnv:
             (0.0, 1.0)]       # release
 
   def action_range(self):
-    return [(-180.0, 180.0),  # velocities (max RPM)
+    return [(-15.0, 15.0),  # velocities (max RPM)
             (-180.0, 180.0),
             (-180.0, 180.0),
             (-180.0, 180.0),
+            (-15.0, 15.0),
             (-180.0, 180.0),
-            (-180.0, 180.0),
-            (0.0, 15.0),
+            (-15.0, 15.0),
             (0.0, 1.0)]
 
   def __del__(self):
