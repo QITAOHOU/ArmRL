@@ -19,7 +19,7 @@ def main():
       help="Render the state")
   parser.add_argument("--render_interval", type=int, default=10,
       help="Number of rollouts to skip before rendering")
-  parser.add_argument("--num_rollouts", type=int, default=-1,
+  parser.add_argument("--num_rollouts", type=int, default=1000,
       help="Number of max rollouts")
   parser.add_argument("--logfile", type=str,
       help="Indicate where to save rollout data")
@@ -61,7 +61,7 @@ def main():
     while not done:
       if stopsig:
         break
-      action, eps = modelFn.predict(state, dataset.sample())
+      action, eps = modelFn.predict(state, dataset.sample(gamma=1.0))
       nextState, reward, done, info = env.step(action)
       dataset.append(state, action, reward, nextState=nextState,
           info={"eps": eps})
@@ -74,7 +74,7 @@ def main():
 
     # no importance sampling just yet, do it later
     dataset.reset()
-    modelFn.fit(dataset.sample())
+    modelFn.fit(dataset.sample(gamma=1.0))
     #modelFn.clear()
     print("Reward:", reward if (reward >= 0.00001) else 0, "with Error:",
         modelFn.score(), "with steps:", steps)
