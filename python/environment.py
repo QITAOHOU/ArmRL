@@ -188,7 +188,8 @@ class BasketballAccelerationEnv:
   def step(self, action):
     actionRange = np.array(self.action_range(), dtype=np.float32)
     action = action.astype(np.float32)
-    action = np.minimum(np.maximum(action, actionRange[:,0]), actionRange[:,1])
+    action = np.minimum(
+        np.maximum(action, actionRange[:, 0]), actionRange[:, 1])
     t = self.time_interval
     t2 = 0.5 * t ** 2.0
     A = np.concatenate([
@@ -211,16 +212,18 @@ class BasketballAccelerationEnv:
     nextState = ((np.dot(A, np.array([self.angles]).T) + np.dot(B, u)).T)[0]
     stateRange = np.array(self.state_range(), dtype=np.float32)
     minState = np.maximum(stateRange[:, 0],
-        np.concatenate([stateRange[:7, 0] + self.angles[:7], self.angles[7:]]))
+        np.concatenate([stateRange[:7, 0] + self.angles[:7],
+          stateRange[7:, 0]]))
     maxState = np.minimum(stateRange[:, 1],
-        np.concatenate([stateRange[:7, 1] + self.angles[:7], self.angles[7:]]))
-    nextState = np.minimum(np.maximum(nextState, minState), maxState)
+        np.concatenate([stateRange[:7, 1] + self.angles[:7],
+          stateRange[7:, 1]]))
+    nextState = np.minimum(
+        np.maximum(nextState, minState), maxState)
     # find reward and termination
-    reward = self.rewardFn(nextState, action) # should be previous state
+    reward = self.rewardFn(nextState, action)
     done = self.terminationFn(nextState, action)
     self.angles = nextState
     self.iter += 1
-    # assuming that actions are immediately applied to become the velocities
     return nextState, reward, done, {}
 
   def render(self, mode="human", close=False):
@@ -235,6 +238,9 @@ class BasketballAccelerationEnv:
     else:
       time.sleep(self.time_render - t)
       self.time_render += 1.0 / self.fps
+
+    #if self.terminationFn(self.angles, None):
+      #self.ballsim.setPosition(pos2)
 
   def close(self):
     if self.armsim != None:
@@ -297,13 +303,13 @@ class BasketballAccelerationEnv:
             (0.0, 1.0)]       # release
 
   def action_range(self):
-    return [(-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
+    return [(-15.0, 15.0),
+            (-15.0, 15.0),
+            (-15.0, 15.0),
+            (-15.0, 15.0),
+            (-15.0, 15.0),
+            (-15.0, 15.0),
+            (-15.0, 15.0),
             (0.0, 1.0)]
 
   def __del__(self):

@@ -6,21 +6,24 @@ class BasePolicy: # sample-based policy
   def __init__(self, getActionsFn, distributionFn=None):
     self.getActions = getActionsFn
     self.distribution = distributionFn
+    self.chosenAction = None
+    self.actions = None
 
   def __call__(self, state):
     if self.getActions == None:
       return np.array([])
-    actions = self.getActions(state)
-    if type(actions) == type(np.array([])):
-      actions = list(actions)
+    self.actions = self.getActions(state)
+    if type(self.actions) == type(np.array([])):
+      self.actions = list(self.actions)
     # default behavior is to return a random action sampled uniformly
     # otherwise we sample
     if self.distribution:
       dist = self.distribution(np.concatenate([
-        repmat(state, len(actions), 1), np.array(actions)], axis=1))
-      return actions[np.random.choice(dist.shape[0], p=dist)]
+        repmat(state, len(self.actions), 1), np.array(self.actions)], axis=1))
+      self.chosenAction = np.random.choice(dist.shape[0], p=dist)
     else:
-      return actions[np.random.choice(len(actions))]
+      self.chosenAction = np.random.choice(len(self.actions))
+    return self.actions[self.chosenAction]
 
 class EpsilonGreedyPolicy(BasePolicy):
   def __init__(self, epsilon=0.1, getActionsFn=None, distributionFn=None,
@@ -34,12 +37,13 @@ class EpsilonGreedyPolicy(BasePolicy):
   def __call__(self, state):
     if self.getActions == None:
       return np.array([])
-    actions = self.getActions(state)
-    if type(actions) == type(np.array([])):
-      actions = list(actions)
+    self.actions = self.getActions(state)
+    if type(self.actions) == type(np.array([])):
+      self.actions = list(self.actions)
     if self.distribution and random.random() >= self.epsilon:
       dist = self.distribution(np.concatenate([
-        repmat(state, len(actions), 1), np.array(actions)], axis=1))
-      return actions[np.argmax(dist)]
+        repmat(state, len(self.actions), 1), np.array(self.actions)], axis=1))
+      self.chosenAction = np.argmax(dist)
     else:
-      return actions[np.random.choice(len(actions))]
+      self.chosenAction = np.random.choice(len(self.actions))
+    return self.actions[self.chosenAction]

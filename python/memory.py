@@ -57,19 +57,14 @@ class ReplayBuffer:
     actions = []
     nextStates = []
     rewards = []
-    nextActions = []
     values = []
+    terminal = []
     for i in range(min(num_items, len(idx))):
       states.append(dataset[idx[i]]["state"])
       actions.append(dataset[idx[i]]["action"])
       rewards.append(dataset[idx[i]]["reward"])
       nextStates.append(dataset[idx[i]]["nextState"])
-      # do a hack to speed up the training
-      if idx[i] + 1 in ends:
-        nextActions.append(np.zeros(dataset[0]["action"].shape,
-          dtype=np.float32)) # usually this is the "best action"
-      else:
-        nextActions.append(dataset[idx[i] + 1]["action"])
+      terminal.append(int(idx[i] + 1 in ends))
       # careful: wrong place to put it, but better than diverging tbh
       values.append(dataset[idx[i]]["value"])
     return {
@@ -77,7 +72,7 @@ class ReplayBuffer:
         "actions": np.array(actions, dtype=np.float32),
         "nextStates": np.array(nextStates, dtype=np.float32),
         "rewards": np.array(rewards, dtype=np.float32),
-        "nextActions": np.array(nextActions, dtype=np.float32),
+        "terminal": np.array(terminal, dtype=np.int),
         "values": np.array(values, dtype=np.float32)
         }
 
