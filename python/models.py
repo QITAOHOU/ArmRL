@@ -133,11 +133,11 @@ class PoWERDistribution:
       currentState = np.array([currentState])
       vectored = True
     self.eps = np.random.normal(scale=self.sigma.flatten())
-    W = self.theta + np.reshape(self.eps, self.theta.shape)
-    S = dataset["states"]
-    phi = np.array([RBF(repmat(currentState, S.shape[0], 1) - S)]) \
-        if S.shape[0] > 0 else np.zeros(currentState.shape)
-    a = np.dot(W.T, phi.T)
+    Theta = self.theta + np.reshape(self.eps, self.theta.shape)
+    s = dataset["states"]
+    s_t = repmat(currentState, max(s.shape[0], 1), 1)
+    phi = RBF(s_t - s) if s.shape[0] > 0 else np.zeros(s_t.shape)
+    a = np.dot(Theta.T, phi.T)
     if vectored:
       a = a.flatten()
     return a, self.eps
