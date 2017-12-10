@@ -51,14 +51,14 @@ def main():
   # create the basketball environment
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
       goal=[0, 5, 0],
-      initialLengths=np.array([0, 0, 1, 1, 0, 1, 1]),
+      initialLengths=np.array([0, 0, 1, 1, 1, 0, 1]),
       initialAngles=np.array([-5, 45, -10, -10, 0, -10, 0]))
 
   # create space
   stateSpace = ContinuousSpace(ranges=env.state_range())
   actionRange = env.action_range()
   actionSpace = DiscreteSpace(intervals=[15 for i in range(5)] + [1],
-      ranges=[actionRange[0],
+      ranges=[(0, 0),
               actionRange[1],
               actionRange[2],
               actionRange[3],

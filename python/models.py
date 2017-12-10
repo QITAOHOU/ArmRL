@@ -2,7 +2,6 @@ import numpy as np
 from numpy.matlib import repmat
 import mxnet as mx
 import os
-import memory
 
 class MxFullyConnected:
   def __init__(self, sizes=[1, 1], batch_size=32, alpha=0.01, use_gpu=False):
@@ -115,51 +114,38 @@ class MxFullyConnected:
   def save_params(self, params_filename):
     self.model.save_params(params_filename)
 
-def RBF(s_t, s):
+def RBF(dx):
   alpha = 1.0
-  return np.sum(np.exp(-alpha * np.multiply(s_t - s, s_t - s)), axis=0) / \
-      float(s.shape[0])
+  return np.sum(np.exp(-alpha * np.multiply(dx, dx)), axis=0) / \
+      float(dx.shape[0])
 
 class PoWERDistribution:
   def __init__(self, n_states, n_actions, sigma=1.0):
     self.theta = np.random.random([n_states, n_actions])
     #self.sigma = np.random.random([n_states, n_actions])
     self.sigma = np.ones([n_states, n_actions], dtype=np.float32) * sigma
-    self.dataset = []
     self.eps = None
     self.error = 0
 
-  def predict(self, currentState): # sample
+  def predict(self, currentState, dataset): # sample
     vectored = False
     if len(currentState.shape) == 1:
       currentState = np.array([currentState])
       vectored = True
     self.eps = np.random.normal(scale=self.sigma.flatten())
     W = self.theta + np.reshape(self.eps, self.theta.shape)
-    phi = np.array([
-      RBF(currentState, np.array([x["state"] for x in self.dataset]))]) \
-        if len(self.dataset) > 0 else np.zeros(currentState.shape)
+    S = dataset["states"]
+    phi = np.array([RBF(repmat(currentState, S.shape[0], 1) - S)]) \
+        if S.shape[0] > 0 else np.zeros(currentState.shape)
     a = np.dot(W.T, phi.T)
     if vectored:
       a = a.flatten()
-    return a
+    return a, self.eps
 
-  def append(self, state, action, nextState, reward):
-    self.dataset.append({
-      "state": state,
-      "action": action,
-      "nextState": nextState,
-      "reward": reward,
-      "eps": self.eps
-      })
-
-  def fit(self):
-    dataset = memory.Bellman(self.dataset, 1.0)
-    weightedq = np.sum([x["value"] * x["eps"] for x in dataset], axis=0)
-    totalq = sum([x["value"] for x in dataset])
-    if totalq == 0.0:
-      self.error = 0
-      return
+  def fit(self, dataset):
+    weightedq = np.sum([dataset["values"][i] * dataset["info"][i]["eps"]
+      for i in range(len(dataset))], axis=0)
+    totalq = sum([dataset["values"][i] for i in range(len(dataset))]) + 0.00001
     update = np.reshape(weightedq / totalq, self.theta.shape)
     self.error = np.sum(np.square(update))
     self.theta += update

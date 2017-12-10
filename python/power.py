@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 import numpy as np
 import argparse
-import random
-import time
-import os
 import signal
-from environment import BasketballVelocityEnv
-from core import ContinuousSpace
+from environment import BasketballVelocityEnv, BasketballAccelerationEnv
 from models import PoWERDistribution
+import memory
+from memory import ReplayBuffer
 
 stopsig = False
 def stopsigCallback(signo, _):
@@ -35,20 +33,21 @@ def main():
   global stopsig
 
   # create the basketball environment
+  #env = BasketballAccelerationEnv(fps=60.0, timeInterval=0.1,
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
       goal=[0, 5, 0],
       initialLengths=np.array([0, 0, 1, 1, 0, 1, 1]),
       initialAngles=np.array([-5, 45, -10, -10, -5, -10, -5]))
 
-  # create space
-  stateSpace = ContinuousSpace(ranges=env.state_range())
-  actionSpace = ContinuousSpace(ranges=env.action_range())
-
   # create the model and policy functions
-  modelFn = PoWERDistribution(stateSpace.n, actionSpace.n)
+  modelFn = PoWERDistribution(len(env.state_range()), len(env.action_range()),
+      sigma=5.0)
   if args.load_params:
     print("loading params...")
     modelFn.load_params(args.load_params)
+
+  memory.MAX_ITEMS = 1024
+  dataset = ReplayBuffer()
   if args.logfile:
     log = open(args.logfile, "a")
   
@@ -62,9 +61,10 @@ def main():
     while not done:
       if stopsig:
         break
-      action = modelFn.predict(state)
+      action, eps = modelFn.predict(state, dataset.sample())
       nextState, reward, done, info = env.step(action)
-      modelFn.append(state, action, nextState, reward)
+      dataset.append(state, action, reward, nextState=nextState,
+          info={"eps": eps})
       state = nextState
       steps += 1
       if args.render and rollout % args.render_interval == 0:
@@ -73,8 +73,9 @@ def main():
       break
 
     # no importance sampling just yet, do it later
-    modelFn.fit()
-    modelFn.clear()
+    dataset.reset()
+    modelFn.fit(dataset.sample())
+    #modelFn.clear()
     print("Reward:", reward if (reward >= 0.00001) else 0, "with Error:",
         modelFn.score(), "with steps:", steps)
     if args.logfile:

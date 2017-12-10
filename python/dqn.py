@@ -48,8 +48,8 @@ def main():
   # create the basketball environment
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
       goal=[0, 5, 0],
-      initialLengths=np.array([0, 0, 1, 1, 0, 1, 1]),
-      initialAngles=np.array([0, 45, -10, -10, 0, -10, 0]))
+      initialLengths=np.array([0, 0, 1, 1, 1, 0, 1]),
+      initialAngles=np.array([0, 45, -20, -20, 0, 20, 0]))
 
   # create space
   stateSpace = ContinuousSpace(ranges=env.state_range())
@@ -67,7 +67,7 @@ def main():
   softmax = lambda s: np.exp(s) / np.sum(np.exp(s))
   #allActions = actionSpace.sampleAll()
   policyFn = EpsilonGreedyPolicy(epsilon=args.epsilon,
-      getActionsFn=lambda state: actionSpace.sample(1024),
+      getActionsFn=lambda state: actionSpace.sample(2048),
       distributionFn=lambda qstate: softmax(modelFn(qstate)))
   dataset = ReplayBuffer()
   if args.logfile:
@@ -87,7 +87,7 @@ def main():
       action = policyFn(state)
       nextState, reward, done, info = env.step(
           processor.process_env_action(action))
-      dataset.append(state, action, reward, nextState)
+      dataset.append(state, action, reward, nextState=nextState)
       if done:
         dist = modelFn(np.concatenate([repmat(state, len(policyFn.actions), 1),
           np.array(policyFn.actions)], axis=1))
