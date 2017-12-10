@@ -26,8 +26,9 @@ class BasketballVelocityEnv:
       initialAngles=np.zeros([7], dtype=np.float32), \
       initialLengths=np.array([0, 0, 1, 1, 1, 0, 1], dtype=np.float32),
       timeInterval=1.0, fps=30.0):
-    self.lengths = initialLengths.astype(np.float32)
-    self.initial_state = np.concatenate([initialAngles.astype(np.float32),
+    self.lengths = np.array(initialLengths, dtype=np.float32)
+    self.initial_state = np.concatenate([
+      np.array(initialAngles, dtype=np.float32),
       np.zeros([8], dtype=np.float32)]) # angpos, angvel, release
     self.angles = self.initial_state.copy()
     self.goal = goal
@@ -46,7 +47,7 @@ class BasketballVelocityEnv:
 
   def step(self, action):
     actionRange = np.array(self.action_range(), dtype=np.float32)
-    action = action.astype(np.float32)
+    action = np.array(action, dtype=np.float32)
     action = np.minimum(
         np.maximum(action, actionRange[:, 0]), actionRange[:, 1])
     t = self.time_interval
@@ -132,21 +133,21 @@ class BasketballVelocityEnv:
             (-180.0, 180.0),
             (-180.0, 180.0),
             (-180.0, 180.0),
-            (-15.0, 15.0),  # velocities (max RPM)
+            (-180.0, 180.0),  # velocities (max RPM)
             (-180.0, 180.0),
             (-180.0, 180.0),
             (-180.0, 180.0),
-            (-15.0, 15.0),
+            (-180.0, 180.0),
             (-180.0, 180.0),
             (0.0, 0.0),
             (0.0, 1.0)]       # release
 
   def action_range(self):
-    return [(-15.0, 15.0),  # velocities (max RPM)
+    return [(-180.0, 180.0),  # velocities (max RPM)
             (-180.0, 180.0),
             (-180.0, 180.0),
             (-180.0, 180.0),
-            (-15.0, 15.0),
+            (-180.0, 180.0),
             (-180.0, 180.0),
             (0.0, 0.0),
             (0.0, 1.0)]
@@ -167,8 +168,9 @@ class BasketballAccelerationEnv:
       initialAngles=np.zeros([7], dtype=np.float32), \
       initialLengths=np.array([0, 0, 1, 1, 1, 0, 1], dtype=np.float32),
       timeInterval=1.0, fps=30.0):
-    self.lengths = initialLengths.astype(np.float32)
-    self.initial_state = np.concatenate([initialAngles.astype(np.float32),
+    self.lengths = np.array(initialLengths, dtype=np.float32)
+    self.initial_state = np.concatenate([
+      np.array(initialAngles, dtype=np.float32),
       np.zeros([8], dtype=np.float32)]) # angpos, angvel, release
     self.angles = self.initial_state.copy()
     self.goal = goal
@@ -187,7 +189,7 @@ class BasketballAccelerationEnv:
 
   def step(self, action):
     actionRange = np.array(self.action_range(), dtype=np.float32)
-    action = action.astype(np.float32)
+    action = np.array(action, dtype=np.float32)
     action = np.minimum(
         np.maximum(action, actionRange[:, 0]), actionRange[:, 1])
     t = self.time_interval

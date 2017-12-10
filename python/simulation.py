@@ -7,21 +7,25 @@ for dir_name in lib_dirs:
   if os.path.isfile(dir_name + "/libarm_plugin.so"):
     libarm_name = dir_name + "/libarm_plugin.so"
     break
-libarm = ctypes.cdll.LoadLibrary(libarm_name)
-libarm.arm_plugin_init.resType = None
-libarm.arm_plugin_destroy.resType = None
-libarm.arm_plugin_setPositions.resType = None
-libarm.arm_plugin_setPositions.argTypes = [ \
-    ctypes.c_double, ctypes.c_double, ctypes.c_double, \
-    ctypes.c_double, ctypes.c_double, ctypes.c_double, \
-    ctypes.c_double, ctypes.c_double, ctypes.c_double, \
-    ctypes.c_double, ctypes.c_double, ctypes.c_double, \
-    ctypes.c_double, ctypes.c_double, ctypes.c_double, \
-    ctypes.c_double, ctypes.c_double, ctypes.c_double, \
-    ctypes.c_double, ctypes.c_double, ctypes.c_double ]
+libarm = None
+if libarm_name != "":
+  libarm = ctypes.cdll.LoadLibrary(libarm_name)
+  libarm.arm_plugin_init.resType = None
+  libarm.arm_plugin_destroy.resType = None
+  libarm.arm_plugin_setPositions.resType = None
+  libarm.arm_plugin_setPositions.argTypes = [ \
+      ctypes.c_double, ctypes.c_double, ctypes.c_double, \
+      ctypes.c_double, ctypes.c_double, ctypes.c_double, \
+      ctypes.c_double, ctypes.c_double, ctypes.c_double, \
+      ctypes.c_double, ctypes.c_double, ctypes.c_double, \
+      ctypes.c_double, ctypes.c_double, ctypes.c_double, \
+      ctypes.c_double, ctypes.c_double, ctypes.c_double, \
+      ctypes.c_double, ctypes.c_double, ctypes.c_double ]
 
 class Arm(object):
   def __init__(self):
+    assert libarm != None
+
     # set the limits here (HW 1.1)
     self.joint_limits = [
         (-180.0, 180.0),
