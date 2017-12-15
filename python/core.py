@@ -3,14 +3,14 @@ from numpy.matlib import repmat
 import math
 import random
 
-class JointProcessor:
+class DQNProcessor:
   def __init__(self, space=None):
     self.space = space
 
   def process_env_action(self, discrete):
     """
     If the discrete is the size of the discrete space, then transform it to
-    the continuous space
+    the continuous space (since we are taking the actions discretized anyway)
     """
     discrete = np.array(discrete, dtype=np.float32)
     if discrete.shape[0] == self.space.bins.shape[0]:
@@ -52,10 +52,20 @@ class JointProcessor:
       discrete[binidx + offsets[i]] = 1.0
     return discrete
 
-  def process_Q(self, dataset):
-    qstates = np.concatenate([dataset["states"], dataset["actions"]], axis=1)
-    qvalues = dataset["values"]
-    return { "data": qstates, "label": qvalues }
+  def process_Qstate(self, state, action):
+    if len(state) == 1:
+      state = state.reshape((1, -1))
+    if len(action) == 1:
+      action = action.reshape((1, -1))
+    Qstate = np.concatenate([state, action], axis=1)
+    return Qstate.reshape(list(Qstate.shape) + [1]) # turn into sequences
+
+  def process_Qvalue(self, value):
+    if type(values) != type(np.array([])):
+      value = np.array([value])
+    if len(value) == 1:
+      value = np.reshape((-1, 1))
+    return value
 
 #class DiscreteSpace(gym.Space):
 class DiscreteSpace:

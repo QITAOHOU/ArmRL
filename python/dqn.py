@@ -6,13 +6,14 @@ import random
 import time
 import os
 import signal
+from console_widgets import Progbar
 from environment import BasketballAccelerationEnv, BasketballVelocityEnv
 from core import ContinuousSpace, \
                  DiscreteSpace, \
-                 JointProcessor
-from models import MxFullyConnected
+                 DQNProcessor
+from models import DQNNetwork
 from policy import EpsilonGreedyPolicy
-from memory import ReplayBuffer
+from memory import ReplayBuffer, RingBuffer
 
 stopsig = False
 def stopsigCallback(signo, _):
@@ -36,43 +37,49 @@ def main():
       help="Save learned parameters to [SAVE_PARAMS]")
   parser.add_argument("--silent", action="store_true",
       help="Suppress print of the DQN config")
-  parser.add_argument("--gamma", type=float, default=0.9,
+  parser.add_argument("--gamma", type=float, default=0.99,
       help="Discount factor")
   parser.add_argument("--epsilon", type=float, default=0.1,
       help="Random factor (for Epsilon-greedy)")
   parser.add_argument("--eps_decay", action="store_true",
-      help="Let epsilon decay over time")
+      help="Let epsilon become linearly annealed over time")
+  parser.add_argument("--sample_size", type=int, default=256,
+      help="Number of samples from the dataset per episode")
+  parser.add_argument("--num_epochs", type=int, default=50,
+      help="Number of epochs to run per episode")
   args = parser.parse_args()
 
   signal.signal(signal.SIGINT, stopsigCallback)
   global stopsig
 
   # create the basketball environment
-  env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
+  env = BasketballVelocityEnv(fps=60.0, timeInterval=1.0,
       goal=[0, 5, 0],
       initialLengths=np.array([0, 0, 1, 1, 1, 0, 1]),
-      initialAngles=np.array([0, 45, -20, -20, 0, 20, 0]))
+      initialAngles=np.array([0, 45, -20, -20, 0, -20, 0]))
 
   # create space
   stateSpace = ContinuousSpace(ranges=env.state_range())
-  actionSpace = DiscreteSpace(intervals=[180 for i in range(7)] + [1],
+  actionSpace = DiscreteSpace(intervals=[25 for i in range(7)] + [1],
       ranges=env.action_range())
-  processor = JointProcessor(actionSpace)
+  processor = DQNProcessor(actionSpace)
 
   # create the model and policy functions
-  modelFn = MxFullyConnected(sizes=[stateSpace.n + actionSpace.n,
-    1024, 1024, 1], alpha=0.001, use_gpu=True)
+  #modelFn = DQNNetwork(sizes=[1, 128, 128, 64, 512, 256, 1],
+  modelFn = DQNNetwork(
+      sizes=[stateSpace.n + actionSpace.n, 128, 128, 64, 512, 256, 1],
+      alpha=0.001, use_gpu=True, momentum=0.9)
   if args.load_params:
     print("Loading params...")
     modelFn.load_params(args.load_params)
 
-  softmax = lambda s: np.exp(s) / np.sum(np.exp(s))
   allActions = actionSpace.sampleAll()
   policyFn = EpsilonGreedyPolicy(epsilon=args.epsilon,
       getActionsFn=lambda state: allActions,
       #getActionsFn=lambda state: actionSpace.sample(2048),
-      distributionFn=lambda qstate: softmax(modelFn(qstate)))
-  dataset = ReplayBuffer()
+      distributionFn=lambda qstate: modelFn(qstate),
+      processor=processor)
+  dataset = RingBuffer(max_limit=2048)
   if args.logfile:
     log = open(args.logfile, "a")
 
@@ -85,86 +92,76 @@ def main():
     print("Epsilon:", args.epsilon)
     print("Epsilon decay:", args.eps_decay)
     print("Gamma:", args.gamma)
-    print("Actions are sampled:",
-        policyFn.getActions(None).shape[0] == actionSpace.n)
+    __actionShape = policyFn.getActions(None).shape
+    totalActions = np.prod(actionSpace.bins)
+    print("Actions are sampled:", __actionShape[0] != totalActions)
+    print("Number of actions:", totalActions)
 
   rollout = 0
-  lastQ = 0
-  lastR = 0
-  lastSteps = 0
   while args.num_rollouts == -1 or rollout < args.num_rollouts:
-    print("Iteration:", rollout)
+    if stopsig: break
+    if not args.silent:
+      print("Iteration:", rollout, "with epsilon:", policyFn.epsilon)
     state = env.reset()
     reward = 0
     done = False
     steps = 0
-    while not done:
-      if stopsig:
-        break
+    while not done and steps < 5: # Raghav uses 5 step max
       action = policyFn(state)
+      if steps == 4: # throw immediately
+        action[-2] = 0
+        action[-1] = 1
+      print("A:", processor.process_env_action(action))
       nextState, reward, done, info = env.step(
           processor.process_env_action(action))
-      dataset.append(state, action, reward, nextState=nextState)
-      if done:
-        dist = modelFn(np.concatenate([repmat(state, len(policyFn.actions), 1),
-          np.array(policyFn.actions)], axis=1))
-        lastQ += dist[policyFn.chosenAction, 0]
-        lastR += reward
+      print("R:", reward)
+      print("steps:", steps)
+      dataset.append([state, action, nextState, reward, done])
       state = nextState
       steps += 1
-      lastSteps += 1
       if args.render and rollout % args.render_interval == 0:
         env.render()
-    if stopsig:
-      break
-
-    dataset.reset() # push trajectory into the dataset buffer
-
-    if rollout >= 1024 and rollout % 128 == 0:
-      if not args.silent:
-        print("Preprocessing...")
-      D = dataset.sample(1024, gamma=args.gamma)
-      QS0 = np.concatenate([D["states"], D["actions"]], axis=1)
-      #nextActions = D["actions"]  # choosing the max action is a pain, leave that
-      #                            # up to the actor in the actor-critic models
-      #                            # just use the continuing action
-      #Q1 = modelFn(np.concatenate([D["nextStates"], nextActions], axis=1))
-      Q1 = []
-      for i in range(D["nextStates"].shape[0]):
-        print(i, "of", D["nextStates"].shape[0])
-        if stopsig:
-          break
-        dist = modelFn(np.concatenate([repmat(D["nextStates"][i, :],
-          allActions.shape[0], 1), allActions], axis=1))
-        Q1.append(np.max(dist)) # max[a' in A](Q(s', a'))
-      if stopsig:
-        break
-      Q1 = np.array([Q1]).T
-      R = np.where(np.array([D["terminal"]]).T,
-          np.array([D["rewards"]]).T,
-          np.array([D["rewards"]]).T + args.gamma * Q1)
-
-      if not args.silent:
-        print("Training...")
-      modelFn.fit({ "data": QS0, "label": R }, num_epochs=500)
-
-      print("Reward:", reward if (reward >= 0.00001) else 0, "with Error:",
-          modelFn.score(), "with steps:", steps, "Q,R:",
-          float(lastQ) / lastSteps, float(lastR) / lastSteps)
-      if args.logfile:
-        log.write("[" + str(rollout) + ", " + str(steps) + ", " + str(reward) +
-            ", " + str(modelFn.score()) + ", " + str(float(lastQ) / lastSteps) +
-            ", " + str(float(lastR) / lastSteps) + "]\n")
-      lastQ = 0
-      lastR = 0
-      lastSteps = 0
 
     rollout += 1
-    if args.eps_decay and rollout % 100 == 0:
-      policyFn.epsilon *= 0.95
-      if policyFn.epsilon < min(0.1, args.epsilon):
-        policyFn.epsilon = min(0.1, args.epsilon)
-      print("Epsilon is now:", policyFn.epsilon)
+    if args.eps_decay: # linear anneal
+      epsilon_diff = args.epsilon - min(0.1, args.epsilon)
+      policyFn.epsilon = args.epsilon - min(rollout, 1e4) / 1e4 * epsilon_diff
+
+    if rollout % 128 == 0:
+      D = dataset.sample(args.sample_size)
+      states = np.array([d[0] for d in D])
+      actions = np.array([d[1] for d in D])
+      nextStates = [d[2] for d in D]
+      rewards = np.array([[d[3]] for d in D]) # rewards require an extra []
+      terminal = [d[4] for d in D]
+
+      QS0 = processor.process_Qstate(states, actions)
+      Q1 = np.zeros(rewards.shape, dtype=np.float32)
+      progressBar = Progbar(maxval=len(nextStates), prefix="Generate Q(s,a)")
+      for i, nextState in enumerate(nextStates):
+        if stopsig: break
+        if not args.silent: progressBar.printProgress(i)
+        if terminal[i]: continue
+        dist = modelFn(processor.process_Qstate(
+          repmat(nextState, allActions.shape[0], 1), allActions))
+        Q1[i, 0] = np.max(dist) # max[a' in A]Q(s', a')
+      Q0_ = rewards + args.gamma * Q1
+      modelFn.fit({ "qstates": QS0, "qvalues": Q0_ },
+          num_epochs=args.num_epochs)
+
+      avgQ = np.sum(Q0_) / Q0_.shape[0] # todo: change to what the nn outputs
+      avgR = np.sum(rewards) / rewards.shape[0]
+      print("Reward:", reward,
+          "with Error:", modelFn.score(),
+          "with steps:", steps, "\n",
+          "Average Q:", avgQ,
+          "Average R:", avgR)
+      if args.logfile:
+        log.write("[" + str(rollout) + ", " +
+            str(steps) + ", " +
+            str(modelFn.score()) + ", " +
+            str(avgQ) + ", " +
+            str(avgR) + "]\n")
 
   if args.logfile:
     log.close()

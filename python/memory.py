@@ -4,8 +4,6 @@ from copy import deepcopy
 
 MAX_LIMIT = 4096
 
-# TODO: fixme
-
 def Bellman(d, gamma):
   d = deepcopy(d)
   values = []
@@ -19,6 +17,36 @@ def Bellman(d, gamma):
   for i in range(len(d)):
     d[i]["value"] = values[i]
   return d
+
+class RingBuffer:
+  def __init__(self, max_limit=MAX_LIMIT):
+    self.D = []
+    self.max_limit = max_limit
+    self.iter = 0
+
+  def append(self, x):
+    if len(self.D) < self.max_limit:
+      self.D.append(x)
+    else:
+      self.D[self.iter] = x
+      self.iter = (self.iter + 1) % self.max_limit
+
+  def sample(self, n=-1):
+    dataset = []
+    idx = list(range(len(self.D)))
+    random.shuffle(idx)
+    if n == -1:
+      n = len(self.D)
+    n = min(n, len(self.D))
+    for i in range(n):
+      dataset.append(self.D[idx[i]])
+    return dataset
+
+  def reset(self):
+    pass
+
+  def clear(self):
+    self.D = []
 
 class ReplayBuffer:
   def __init__(self):

@@ -13,9 +13,6 @@ class EnvSpec:
   def timestep_limit(self):
     return self.max_episode_steps
 
-max_x = 0
-min_x = 1000
-
 #class BasketballVelocityEnv(gym.Env):
 class BasketballVelocityEnv:
   """
@@ -120,24 +117,10 @@ class BasketballVelocityEnv:
     if dt < 0:
       return -1.0
 
-    # print the ball's landing position
-    XY = pos[:2] + vel[:2] * dt
-    print("Ball landed at", XY)
-    global max_x
-    max_x = max(max_x, max(XY[0], XY[1]))
-    print("MAX X:", max_x)
-
     # find the distance from the goal (in the xy-plane) that the ball has hit
     dp = self.goal[:2] - (pos[:2] + vel[:2] * dt)
-
-    # GET DIST AND USE AS METRIC
-    global min_x
-    if np.sqrt(np.dot(dp, dp)) < min_x:
-      min_x = np.sqrt(np.dot(dp, dp))
-    print("MIN X:", min_x)
-
     # use euclidean distance with the diameter of the hoop
-    return max(-1.0, 1.0 - np.sqrt(np.dot(dp, dp)))
+    return max(-1.0, 1.0 - 1e-3 * np.sqrt(np.dot(dp, dp)))
 
   def terminationFn(self, state, action=None, nextState=None):
     return state[-1] >= 0.5 or self.iter >= self.spec.timestep_limit
