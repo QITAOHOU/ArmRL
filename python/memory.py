@@ -49,9 +49,10 @@ class RingBuffer:
     self.D = []
 
 class ReplayBuffer:
-  def __init__(self):
+  def __init__(self, max_limit=MAX_LIMIT):
     self.T = []
     self.D = []
+    self.max_limit = max_limit
 
   def append(self, state, action, reward, nextState=None, info=None):
     self.T.append({
@@ -66,8 +67,7 @@ class ReplayBuffer:
     self.D.append(self.T)
     self.T = []
 
-    global MAX_LIMIT
-    while sum([len(d) for d in self.D]) > MAX_LIMIT:
+    while sum([len(d) for d in self.D]) > self.max_limit:
       self.D = self.D[1:]
 
   def sample(self, num_items=-1, gamma=0.9):

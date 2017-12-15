@@ -11,5 +11,5 @@ args = parser.parse_args()
 with open(args.datafile, "r") as fp:
   data = np.array([eval(line.strip()) for line in fp])
 
-plt.plot(data[:, 1])
+plt.plot(data[:, 4])
 plt.show()

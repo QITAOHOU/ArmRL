@@ -58,7 +58,7 @@ class DQNProcessor:
     if len(action) == 1:
       action = action.reshape((1, -1))
     Qstate = np.concatenate([state, action], axis=1)
-    return Qstate.reshape(list(Qstate.shape) + [1]) # turn into sequences
+    return Qstate
 
   def process_Qvalue(self, value):
     if type(values) != type(np.array([])):

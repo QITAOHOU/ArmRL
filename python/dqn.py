@@ -7,13 +7,11 @@ import time
 import os
 import signal
 from console_widgets import Progbar
-from environment import BasketballAccelerationEnv, BasketballVelocityEnv
-from core import ContinuousSpace, \
-                 DiscreteSpace, \
-                 DQNProcessor
+from environment import BasketballVelocityEnv
+from core import ContinuousSpace, DiscreteSpace, DQNProcessor
 from models import DQNNetwork
 from policy import EpsilonGreedyPolicy
-from memory import ReplayBuffer, RingBuffer
+from memory import RingBuffer
 
 stopsig = False
 def stopsigCallback(signo, _):
@@ -41,8 +39,8 @@ def main():
       help="Discount factor")
   parser.add_argument("--epsilon", type=float, default=0.1,
       help="Random factor (for Epsilon-greedy)")
-  parser.add_argument("--eps_decay", action="store_true",
-      help="Let epsilon become linearly annealed over time")
+  parser.add_argument("--eps_anneal", type=int, default=0,
+      help="The amount of episodes to anneal epsilon by")
   parser.add_argument("--sample_size", type=int, default=256,
       help="Number of samples from the dataset per episode")
   parser.add_argument("--num_epochs", type=int, default=50,
@@ -65,9 +63,8 @@ def main():
   processor = DQNProcessor(actionSpace)
 
   # create the model and policy functions
-  #modelFn = DQNNetwork(sizes=[1, 128, 128, 64, 512, 256, 1],
   modelFn = DQNNetwork(
-      sizes=[stateSpace.n + actionSpace.n, 128, 128, 64, 512, 256, 1],
+      sizes=[stateSpace.n + actionSpace.n, 128, 256, 256, 128, 1],
       alpha=0.001, use_gpu=True, momentum=0.9)
   if args.load_params:
     print("Loading params...")
@@ -76,10 +73,9 @@ def main():
   allActions = actionSpace.sampleAll()
   policyFn = EpsilonGreedyPolicy(epsilon=args.epsilon,
       getActionsFn=lambda state: allActions,
-      #getActionsFn=lambda state: actionSpace.sample(2048),
       distributionFn=lambda qstate: modelFn(qstate),
       processor=processor)
-  dataset = RingBuffer(max_limit=2048)
+  replayBuffer = RingBuffer(max_limit=2048)
   if args.logfile:
     log = open(args.logfile, "a")
 
@@ -90,7 +86,7 @@ def main():
     print("Action space:", actionSpace.n)
     print("Action space bins:", actionSpace.bins)
     print("Epsilon:", args.epsilon)
-    print("Epsilon decay:", args.eps_decay)
+    print("Epsilon anneal episodes:", args.eps_anneal)
     print("Gamma:", args.gamma)
     __actionShape = policyFn.getActions(None).shape
     totalActions = np.prod(actionSpace.bins)
@@ -98,67 +94,69 @@ def main():
     print("Number of actions:", totalActions)
 
   rollout = 0
+  iterationBar = ProgressBar(maxval=128)
   while args.num_rollouts == -1 or rollout < args.num_rollouts:
     if stopsig: break
     if not args.silent:
-      print("Iteration:", rollout, "with epsilon:", policyFn.epsilon)
+      iterationBar.printProgress(rollout % 128, prefix="Query(s,a,s',r)",
+          suffix="epsilon: " + str(policyFn.epsilon))
     state = env.reset()
     reward = 0
     done = False
     steps = 0
-    while not done and steps < 5: # Raghav uses 5 step max
+    while not done and steps < 5: # 5 step max
       action = policyFn(state)
       if steps == 4: # throw immediately
         action[-2] = 0
         action[-1] = 1
-      print("A:", processor.process_env_action(action))
       nextState, reward, done, info = env.step(
           processor.process_env_action(action))
-      print("R:", reward)
-      print("steps:", steps)
-      dataset.append([state, action, nextState, reward, done])
+      replayBuffer.append([state, action, nextState, reward, done])
       state = nextState
       steps += 1
-      if args.render and rollout % args.render_interval == 0:
+      if args.render and (rollout + 1) % args.render_interval == 0:
         env.render()
 
     rollout += 1
-    if args.eps_decay: # linear anneal
+    if args.eps_anneal > 0: # linear anneal
       epsilon_diff = args.epsilon - min(0.1, args.epsilon)
-      policyFn.epsilon = args.epsilon - min(rollout, 1e4) / 1e4 * epsilon_diff
+      policyFn.epsilon = args.epsilon - min(rollout, args.eps_anneal) / \
+          float(args.eps_anneal) * epsilon_diff
 
     if rollout % 128 == 0:
-      D = dataset.sample(args.sample_size)
-      states = np.array([d[0] for d in D])
-      actions = np.array([d[1] for d in D])
-      nextStates = [d[2] for d in D]
-      rewards = np.array([[d[3]] for d in D]) # rewards require an extra []
-      terminal = [d[4] for d in D]
+      dataset = replayBuffer.sample(args.sample_size)
+      states = np.array([d[0] for d in dataset])
+      actions = np.array([d[1] for d in dataset])
+      nextStates = [d[2] for d in dataset]
+      rewards = np.array([[d[3]] for d in dataset]) # rewards require extra []
+      terminal = [d[4] for d in dataset]
 
       QS0 = processor.process_Qstate(states, actions)
       Q1 = np.zeros(rewards.shape, dtype=np.float32)
-      progressBar = Progbar(maxval=len(nextStates), prefix="Generate Q(s,a)")
+      progressBar = ProgressBar(maxval=len(nextStates))
       for i, nextState in enumerate(nextStates):
         if stopsig: break
-        if not args.silent: progressBar.printProgress(i)
-        if terminal[i]: continue
+        if not args.silent:
+          progressBar.printProgress(i, prefix="Creating Q(s,a)",
+              suffix="%s / %s" % (i + 1, len(nextStates)))
+        if terminal[i]: continue # 0
         dist = modelFn(processor.process_Qstate(
           repmat(nextState, allActions.shape[0], 1), allActions))
         Q1[i, 0] = np.max(dist) # max[a' in A]Q(s', a')
+      if stopsig: break
       Q0_ = rewards + args.gamma * Q1
       modelFn.fit({ "qstates": QS0, "qvalues": Q0_ },
           num_epochs=args.num_epochs)
 
-      avgQ = np.sum(Q0_) / Q0_.shape[0] # todo: change to what the nn outputs
+      avgQ = np.sum(Q0_) / Q0_.shape[0]
       avgR = np.sum(rewards) / rewards.shape[0]
-      print("Reward:", reward,
-          "with Error:", modelFn.score(),
-          "with steps:", steps, "\n",
+      print("Rollouts:", rollout,
+          "Error:", modelFn.score(),
           "Average Q:", avgQ,
-          "Average R:", avgR)
+          "Average R:", avgR,
+          "\n")
       if args.logfile:
         log.write("[" + str(rollout) + ", " +
-            str(steps) + ", " +
             str(modelFn.score()) + ", " +
             str(avgQ) + ", " +
             str(avgR) + "]\n")
