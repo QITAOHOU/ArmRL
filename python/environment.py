@@ -13,6 +13,9 @@ class EnvSpec:
   def timestep_limit(self):
     return self.max_episode_steps
 
+max_x = 0
+min_x = 1000
+
 #class BasketballVelocityEnv(gym.Env):
 class BasketballVelocityEnv:
   """
@@ -109,18 +112,32 @@ class BasketballVelocityEnv:
     # the parabola doesn't even reach the line
     b2_4ac = vz * vz - 4 * g * dz
     if b2_4ac < 0:
-      return 0.0
+      return -1.0
     dt1 = (-vz + math.sqrt(b2_4ac)) / (2 * g)
     dt2 = (-vz - math.sqrt(b2_4ac)) / (2 * g)
     dt = max(dt1, dt2)
     # the ball would have to go backwards in time to reach the goal
     if dt < 0:
-      return 0.0
+      return -1.0
+
+    # print the ball's landing position
+    XY = pos[:2] + vel[:2] * dt
+    print("Ball landed at", XY)
+    global max_x
+    max_x = max(max_x, max(XY[0], XY[1]))
+    print("MAX X:", max_x)
 
     # find the distance from the goal (in the xy-plane) that the ball has hit
     dp = self.goal[:2] - (pos[:2] + vel[:2] * dt)
-    # use a kernel distance
-    return np.exp(-np.dot(dp, dp))
+
+    # GET DIST AND USE AS METRIC
+    global min_x
+    if np.sqrt(np.dot(dp, dp)) < min_x:
+      min_x = np.sqrt(np.dot(dp, dp))
+    print("MIN X:", min_x)
+
+    # use euclidean distance with the diameter of the hoop
+    return max(-1.0, 1.0 - np.sqrt(np.dot(dp, dp)))
 
   def terminationFn(self, state, action=None, nextState=None):
     return state[-1] >= 0.5 or self.iter >= self.spec.timestep_limit
@@ -133,22 +150,22 @@ class BasketballVelocityEnv:
             (-180.0, 180.0),
             (-180.0, 180.0),
             (-180.0, 180.0),
-            (-90.0, 90.0),  # velocities (max RPM)
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-90.0, 90.0),
-            (-180.0, 180.0),
+            (-50.0, 50.0),    # velocities (max RPM)
+            (-100.0, 100.0),
+            (-100.0, 100.0),
+            (-100.0, 100.0),
+            (-50.0, 50.0),
+            (-100.0, 100.0),
             (0.0, 0.0),
             (0.0, 1.0)]       # release
 
   def action_range(self):
-    return [(-90.0, 90.0),  # velocities (max RPM)
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-180.0, 180.0),
-            (-90.0, 90.0),
-            (-180.0, 180.0),
+    return [(-0.0, 0.0),    # velocities (max RPM)
+            (-100.0, 100.0),
+            (-100.0, 100.0),
+            (-100.0, 100.0),
+            (-0.0, 0.0),
+            (-100.0, 100.0),
             (0.0, 0.0),
             (0.0, 1.0)]
 
@@ -281,8 +298,8 @@ class BasketballAccelerationEnv:
 
     # find the distance from the goal (in the xy-plane) that the ball has hit
     dp = self.goal[:2] - (pos[:2] + vel[:2] * dt)
-    # use a kernel distance
-    return np.exp(-np.dot(dp, dp))
+    # use euclidean distance with the diameter of the hoop
+    return 1.0 - np.sqrt(np.dot(dp, dp))
 
   def terminationFn(self, state, action=None, nextState=None):
     return state[-1] >= 0.5 or self.iter >= self.spec.timestep_limit
