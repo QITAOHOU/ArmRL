@@ -6,7 +6,7 @@ import random
 import time
 import os
 import signal
-from console_widgets import Progbar
+from console_widgets import ProgressBar
 from environment import BasketballVelocityEnv
 from core import ContinuousSpace, DiscreteSpace, DQNProcessor
 from models import DQNNetwork
@@ -45,6 +45,10 @@ def main():
       help="Number of samples from the dataset per episode")
   parser.add_argument("--num_epochs", type=int, default=50,
       help="Number of epochs to run per episode")
+  parser.add_argument("--episode_length", type=int, default=128,
+      help="Number of rollouts per episode")
+  parser.add_argument("--test", action="store_true",
+      help="Test the params")
   args = parser.parse_args()
 
   signal.signal(signal.SIGINT, stopsigCallback)
@@ -71,7 +75,7 @@ def main():
     modelFn.load_params(args.load_params)
 
   allActions = actionSpace.sampleAll()
-  policyFn = EpsilonGreedyPolicy(epsilon=args.epsilon,
+  policyFn = EpsilonGreedyPolicy(epsilon=args.epsilon if not args.test else 0,
       getActionsFn=lambda state: allActions,
       distributionFn=lambda qstate: modelFn(qstate),
       processor=processor)
@@ -94,12 +98,13 @@ def main():
     print("Number of actions:", totalActions)
 
   rollout = 0
-  iterationBar = ProgressBar(maxval=128)
+  if not args.silent and not args.test:
+    iterationBar = ProgressBar(maxval=args.episode_length)
   while args.num_rollouts == -1 or rollout < args.num_rollouts:
     if stopsig: break
-    if not args.silent:
-      iterationBar.printProgress(rollout % 128, prefix="Query(s,a,s',r)",
-          suffix="epsilon: " + str(policyFn.epsilon))
+    if not args.silent and not args.test:
+      iterationBar.printProgress(rollout % args.episode_length,
+          prefix="Query(s,a,s',r)", suffix="epsilon: " + str(policyFn.epsilon))
     state = env.reset()
     reward = 0
     done = False
@@ -112,6 +117,7 @@ def main():
       nextState, reward, done, info = env.step(
           processor.process_env_action(action))
       replayBuffer.append([state, action, nextState, reward, done])
+      if args.test and done: print("Reward:", reward)
       state = nextState
       steps += 1
       if args.render and (rollout + 1) % args.render_interval == 0:
@@ -123,7 +129,7 @@ def main():
       policyFn.epsilon = args.epsilon - min(rollout, args.eps_anneal) / \
           float(args.eps_anneal) * epsilon_diff
 
-    if rollout % 128 == 0:
+    if rollout % args.episode_length == 0 and not args.test:
       dataset = replayBuffer.sample(args.sample_size)
       states = np.array([d[0] for d in dataset])
       actions = np.array([d[1] for d in dataset])

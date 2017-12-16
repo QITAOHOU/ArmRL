@@ -7,6 +7,12 @@ for dir_name in lib_dirs:
   if os.path.isfile(dir_name + "/libarm_plugin.so"):
     libarm_name = dir_name + "/libarm_plugin.so"
     break
+libball_name = ""
+for dir_name in lib_dirs:
+  if os.path.isfile(dir_name + "/libball_plugin.so"):
+    libball_name = dir_name + "/libball_plugin.so"
+    break
+
 libarm = None
 if libarm_name != "":
   libarm = ctypes.cdll.LoadLibrary(libarm_name)
@@ -20,6 +26,15 @@ if libarm_name != "":
       ctypes.c_double, ctypes.c_double, ctypes.c_double, \
       ctypes.c_double, ctypes.c_double, ctypes.c_double, \
       ctypes.c_double, ctypes.c_double, ctypes.c_double, \
+      ctypes.c_double, ctypes.c_double, ctypes.c_double ]
+
+libball = None
+if libball_name != "":
+  libball = ctypes.cdll.LoadLibrary(libball_name)
+  libball.ball_plugin_init.resType = None
+  libball.ball_plugin_destroy.resType = None
+  libball.ball_plugin_setPosition.resType = None
+  libball.ball_plugin_setPosition.argTypes = [ \
       ctypes.c_double, ctypes.c_double, ctypes.c_double ]
 
 class Arm(object):
@@ -74,3 +89,19 @@ class Arm(object):
         ctypes.c_double(pos[6, 0]),
         ctypes.c_double(pos[6, 1]),
         ctypes.c_double(pos[6, 2]))
+
+class Ball(object):
+  def __init__(self):
+    assert libball != None
+
+    # open the gazebo simulation
+    libball.ball_plugin_init()
+
+  def __del__(self):
+    libball.ball_plugin_destroy()
+
+  def setPosition(self, pos):
+    libball.ball_plugin_setPosition(
+        ctypes.c_double(pos[0]),
+        ctypes.c_double(pos[1]),
+        ctypes.c_double(pos[2]))
