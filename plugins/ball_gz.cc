@@ -37,7 +37,7 @@ void BallPlugin::CreateModel(void) {
             <geometry>\
               <sphere>\
                 <radius>0.241</radius>\
-              </cylinder>\
+              </sphere>\
             </geometry>\
             <material>\
               <script>\
@@ -52,9 +52,9 @@ void BallPlugin::CreateModel(void) {
         <static>1</static>\
       </model>\
     </sdf>";
-  sdf::SDF linkSDF;
-  linkSDF.SetFromString(modelStr);
-  this->model->InsertModelSDF(linkSDF);
+  sdf::SDF modelSDF;
+  modelSDF.SetFromString(modelStr);
+  this->model->InsertModelSDF(modelSDF);
 }
 
 void BallPlugin::OnMsg(ConstVector3dPtr &_msg) {

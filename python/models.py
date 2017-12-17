@@ -4,7 +4,7 @@ import mxnet as mx
 from mxnet import nd, autograd
 import os
 import random
-from console_widgets import ProgressBar
+from widgets import ProgressBar
 
 class DQNNetwork:
   def __init__(self, sizes=[], batch_size=32, alpha=0.01, use_gpu=False,

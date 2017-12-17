@@ -9,5 +9,6 @@
       <uri>model://ground_plane</uri>
     </include>
     <plugin filename="libarm_gz.so" name="arm_plugin"/>
+    <plugin filename="libball_gz.so" name="ball_plugin"/>
   </world>
 </sdf>

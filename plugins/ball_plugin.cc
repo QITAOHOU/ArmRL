@@ -12,9 +12,7 @@ gazebo::transport::PublisherPtr pub;
 static bool connected;
 
 void ball_plugin_init(void) {
-  //gazebo::client::setup();
-  gazebo::transport::init();
-  gazebo::transport::run();
+  gazebo::client::setup();
   node = gazebo::transport::NodePtr(new gazebo::transport::Node());
   node->Init("default");
 
@@ -25,8 +23,7 @@ void ball_plugin_init(void) {
 }
 
 void ball_plugin_destroy(void) {
-  //gazebo::client::shutdown();
-  gazebo::transport::fini();
+  gazebo::client::shutdown();
   connected = false;
 }
 

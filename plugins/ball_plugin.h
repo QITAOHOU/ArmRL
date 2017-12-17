@@ -6,6 +6,6 @@ extern "C" {
 
   void ball_plugin_init(void);
   void ball_plugin_destroy(void);
-  void ball_plugin_setPositions(double x, double y, double z);
+  void ball_plugin_setPosition(double x, double y, double z);
 
 }

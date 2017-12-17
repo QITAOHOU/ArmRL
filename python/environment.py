@@ -33,6 +33,7 @@ class BasketballVelocityEnv:
     self.angles = self.initial_state.copy()
     self.goal = goal
     self.armsim = None
+    self.ballsim = None
     self.time_render = None
     self.fps = fps
     self.iter = 0
@@ -72,20 +73,48 @@ class BasketballVelocityEnv:
       self.armsim = simulation.Arm()
       self.armsim.default_length = self.lengths
     self.armsim.setPositions(pos)
+
+    #if self.ballsim == None:
+    #  self.ballsim = simulation.Ball()
+    #pos0 = pos[-1, :]
+    #self.ballsim.setPosition(pos0)
+
     t = time.time()
-    if self.time_render == None or self.time_render < t:
+    if self.time_render == None or self.time_render <= t:
       self.time_render = t + 1.0 / self.fps
     else:
       time.sleep(self.time_render - t)
       self.time_render += 1.0 / self.fps
+    """
+    if self.terminationFn(self.angles, None):
+      # only calculate the last position of the ball, send that over to sim
+      p0 = physx.forwardKinematics(self.lengths, state[:7] - 0.005 * joints)
+      p1 = physx.forwardKinematics(self.lengths, state[:7] + 0.005 * joints)
+      vel = (p1[-1,:3] - p0[-1,:3]) / 0.01
 
-    #if self.terminationFn(self.angles, None):
-      #self.ballsim.setPosition(pos2)
+      g = np.array([0, 0, -4.9]).reshape([-1, 1])
+      pos1 = pos0
+      dt = 1.0 / self.fps
+      t0 = time.time()
+      t1 = t0 + dt
+      while pos1[2] > self.goal[2]:
+        pos1 = pos0 + vel * dt + g * dt * dt
+        self.ballsim.setPosition(pos1)
+        t = time.time()
+        if t1 <= t:
+          t1 = t + dt
+        else:
+          time.sleep(t1 - t)
+          t1 += dt
+    """
 
   def close(self):
     if self.armsim != None:
       del self.armsim
       self.armsim = None
+    if self.ballsim != None:
+      del self.ballsim
+      self.ballsim = None
 
   def seed(self, seed=None):
     pass

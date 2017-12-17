@@ -6,7 +6,7 @@ import random
 import time
 import os
 import signal
-from console_widgets import ProgressBar
+from widgets import ProgressBar
 from environment import BasketballVelocityEnv
 from core import ContinuousSpace, DiscreteSpace, DQNProcessor
 from models import DQNNetwork
@@ -143,7 +143,8 @@ def main():
 
       QS0 = processor.process_Qstate(states, actions)
       Q1 = np.zeros(rewards.shape, dtype=np.float32)
-      progressBar = ProgressBar(maxval=len(nextStates))
+      if not args.silent:
+        progressBar = ProgressBar(maxval=len(nextStates))
       for i, nextState in enumerate(nextStates):
         if stopsig: break
         if not args.silent:
@@ -163,8 +164,8 @@ def main():
       print("Rollouts:", rollout,
           "Error:", modelFn.score(),
           "Average Q:", avgQ,
-          "Average R:", avgR,
-          "\n")
+          "Average R:", avgR)
+      print("")
       if args.logfile:
         log.write("[" + str(rollout) + ", " +
             str(modelFn.score()) + ", " +
