@@ -119,8 +119,9 @@ class BasketballVelocityEnv:
 
     # find the distance from the goal (in the xy-plane) that the ball has hit
     dp = self.goal[:2] - (pos[:2] + vel[:2] * dt)
+
     # use euclidean distance with the diameter of the hoop
-    return max(-1.0, 1.0 - 1e-3 * np.sqrt(np.dot(dp, dp)))
+    return max(-1.0, 1.0 - 0.001 * np.sqrt(np.dot(dp, dp)))
 
   def terminationFn(self, state, action=None, nextState=None):
     return state[-1] >= 0.5 or self.iter >= self.spec.timestep_limit

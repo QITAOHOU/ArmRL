@@ -174,7 +174,6 @@ class DQNNetwork:
 class PoWERDistribution:
   def __init__(self, n_states, n_actions, sigma=1.0):
     self.theta = np.random.random([n_states, n_actions])
-    #self.sigma = np.random.random([n_states, n_actions])
     self.sigma = np.ones([n_states, n_actions], dtype=np.float64) * sigma
     self.eps = None
     self.error = 0
@@ -184,8 +183,9 @@ class PoWERDistribution:
     if len(currentState.shape) == 1:
       currentState = np.array([currentState])
       vectored = True
-    self.eps = np.random.normal(scale=self.sigma.flatten())
-    Theta = self.theta + np.reshape(self.eps, self.theta.shape)
+    self.eps = np.reshape(np.random.normal(scale=self.sigma.flatten()),
+        self.theta.shape)
+    Theta = self.theta + self.eps
     s = dataset["states"]
     s_t = repmat(currentState, max(s.shape[0], 1), 1)
 
@@ -201,10 +201,11 @@ class PoWERDistribution:
     return a.copy(), self.eps.copy()
 
   def fit(self, dataset):
+    N = len(dataset["values"])
     weightedq = np.sum([dataset["values"][i] * dataset["info"][i]["eps"]
-      for i in range(len(dataset))], axis=0)
-    totalq = sum([dataset["values"][i] for i in range(len(dataset))]) + 0.00001
-    update = np.reshape(weightedq / totalq, self.theta.shape)
+      for i in range(N)], axis=0)
+    totalq = sum([dataset["values"][i] for i in range(N)]) + 0.00001
+    update = weightedq / totalq
     self.error = np.sum(np.square(update))
     self.theta += update
 

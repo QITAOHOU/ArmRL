@@ -27,11 +27,8 @@ class BasePolicy: # sample-based policy
 
 class EpsilonGreedyPolicy(BasePolicy):
   def __init__(self, epsilon=0.1, getActionsFn=None, distributionFn=None,
-      randomFn=None, processor=None):
+      processor=None):
     super().__init__(getActionsFn, distributionFn)
-    self.randomFn = randomFn
-    if self.randomFn == None:
-      self.randomFn = BasePolicy(getActionsFn)
     self.epsilon = epsilon
     self.processor = processor
 

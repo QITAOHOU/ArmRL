@@ -47,6 +47,8 @@ def main():
       help="Number of epochs to run per episode")
   parser.add_argument("--episode_length", type=int, default=128,
       help="Number of rollouts per episode")
+  parser.add_argument("--noise", type=float,
+      help="Amount of noise to add to the actions")
   parser.add_argument("--test", action="store_true",
       help="Test the params")
   args = parser.parse_args()
@@ -114,8 +116,10 @@ def main():
       if steps == 4: # throw immediately
         action[-2] = 0
         action[-1] = 1
-      nextState, reward, done, info = env.step(
-          processor.process_env_action(action))
+      envAction = processor.process_env_action(action)
+      if args.noise:
+        envAction[:7] += np.random.normal(scale=np.ones([7]) * args.noise)
+      nextState, reward, done, info = env.step(envAction)
       replayBuffer.append([state, action, nextState, reward, done])
       if args.test and done: print("Reward:", reward)
       state = nextState

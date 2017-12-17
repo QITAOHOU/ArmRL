@@ -2,7 +2,9 @@
 import numpy as np
 import argparse
 import signal
-from environment import BasketballVelocityEnv, BasketballAccelerationEnv
+from functools import reduce
+from environment import BasketballVelocityEnv
+from core import ContinuousSpace
 from models import PoWERDistribution
 import memory
 from memory import ReplayBuffer
@@ -27,27 +29,33 @@ def main():
       help="Load previously learned parameters from [LOAD_PARAMS]")
   parser.add_argument("--save_params", type=str,
       help="Save learned parameters to [SAVE_PARAMS]")
+  parser.add_argument("--gamma", type=float, default=0.99,
+      help="Discount factor")
+  parser.add_argument("--test", action="store_true",
+      help="Test the params")
   args = parser.parse_args()
 
   signal.signal(signal.SIGINT, stopsigCallback)
   global stopsig
 
   # create the basketball environment
-  #env = BasketballAccelerationEnv(fps=60.0, timeInterval=0.1,
   env = BasketballVelocityEnv(fps=60.0, timeInterval=0.1,
       goal=[0, 5, 0],
-      initialLengths=np.array([0, 0, 1, 1, 0, 1, 1]),
-      initialAngles=np.array([-5, 45, -10, -10, -5, -10, -5]))
+      initialLengths=np.array([0, 0, 1, 1, 1, 0, 1]),
+      initialAngles=np.array([0, 45, -20, -20, 0, -20, 0]))
+
+  # create space
+  stateSpace = ContinuousSpace(ranges=env.state_range())
+  actionSpace = ContinuousSpace(ranges=env.action_range())
 
   # create the model and policy functions
-  modelFn = PoWERDistribution(len(env.state_range()), len(env.action_range()),
-      sigma=5.0)
+  modelFn = PoWERDistribution(stateSpace.n, actionSpace.n,
+      sigma=5.0 if not args.test else 0)
   if args.load_params:
-    print("loading params...")
+    print("Loading params...")
     modelFn.load_params(args.load_params)
 
-  memory.MAX_ITEMS = 1024
-  dataset = ReplayBuffer()
+  replayBuffer = ReplayBuffer(1024)
   if args.logfile:
     log = open(args.logfile, "a")
   
@@ -58,12 +66,15 @@ def main():
     reward = 0
     done = False
     steps = 0
-    while not done:
+    while not done and steps < 5:
       if stopsig:
         break
-      action, eps = modelFn.predict(state, dataset.sample(gamma=1.0))
+      action, eps = modelFn.predict(state,
+          replayBuffer.sample(gamma=args.gamma))
+      if steps == 4:
+        action[-1] = 1.0
       nextState, reward, done, info = env.step(action)
-      dataset.append(state, action, reward, nextState=nextState,
+      replayBuffer.append(state, action, reward, nextState=nextState,
           info={"eps": eps})
       state = nextState
       steps += 1
@@ -72,20 +83,28 @@ def main():
     if stopsig:
       break
 
-    # no importance sampling just yet, do it later
-    dataset.reset()
-    modelFn.fit(dataset.sample(gamma=1.0))
-    #modelFn.clear()
-    print("Reward:", reward if (reward >= 0.00001) else 0, "with Error:",
-        modelFn.score(), "with steps:", steps)
+    # no importance sampling, implement it when we have small datasets
+    replayBuffer.reset()
+    dataset = replayBuffer.sample(-1)
+    modelFn.fit(dataset)
+
+    avgR = np.sum(dataset["rewards"]) / float(len(dataset["rewards"]))
+    avgQ = np.sum(dataset["values"]) / float(len(dataset["values"]))
+    print("Rollouts:", rollout,
+        "Error:", modelFn.score(),
+        "Average Q", avgQ,
+        "Average R", avgR)
     if args.logfile:
-      log.write("[" + str(rollout) + ", " + str(reward) + "]\n")
+      log.write("[" + str(rollout) + ", " +
+          str(modelFn.score()) + ", " +
+          str(avgQ) + ", " +
+          str(avgR) + "]\n")
     rollout += 1
 
   if args.logfile:
     log.close()
   if args.save_params:
-    print("saving params...")
+    print("Saving params...")
     modelFn.save_params(args.save_params)
 
 if __name__ == "__main__":
