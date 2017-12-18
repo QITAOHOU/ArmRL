@@ -13,6 +13,7 @@ sudo apt-get install libarmadillo-dev
 sudo apt-get install libprotobuf-dev
 sudo apt-get install python3-pip
 sudo pip3 install numpy pygame
+sudo pip3 install mxnet
 ```
 
 Note that installing gazebo/sdf have seen issues in the past. While this
