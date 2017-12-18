@@ -85,7 +85,7 @@ def main():
 
     # no importance sampling, implement it when we have small datasets
     replayBuffer.reset()
-    dataset = replayBuffer.sample(-1)
+    dataset = replayBuffer.sample(gamma=args.gamma)
     modelFn.fit(dataset)
 
     avgR = np.sum(dataset["rewards"]) / float(len(dataset["rewards"]))
