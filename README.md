@@ -32,7 +32,7 @@ cmake ..
 make
 ```
 
-# Running DQN
+## Running DQN
 
 To run the standard DQN (and to save the model after training), just type the
 following:
@@ -48,13 +48,13 @@ To view all the flags which you can set, type:
 ./dqn --help
 ```
 
-# Running DQN on the simulation
+## Running DQN on the simulation
 
 Now you can run the project. First start by running the gazebo simulator used
 for visualization:
 
 ```
-./scripts/start_viz.sh
+./scripts/start_armviz.sh
 ```
 
 Open a new terminal and navigate to the project directory. To run the DQN model:
@@ -69,7 +69,7 @@ If you want to stop visualization, run the following:
 ./killserver.sh
 ```
 
-# Running PoWER
+## Running PoWER
 
 To run PoWER (and to save the model after training), just type the following:
 
